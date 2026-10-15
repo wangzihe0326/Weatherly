@@ -18,8 +18,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -33,7 +35,7 @@ import au.edu.jcu.assessment.utilityapp.ui.components.WeatherIcon
 import au.edu.jcu.assessment.utilityapp.ui.screens.SettingsScreen
 import au.edu.jcu.assessment.utilityapp.ui.screens.UtilityScreen
 
-/** Stateless screen content; the selected tab alone belongs to this UI. */
+/** Business state comes from the ViewModel; tab and browsing state remain local to the UI. */
 @Composable
 fun UtilityApp(
     state: UtilityUiState,
@@ -44,6 +46,7 @@ fun UtilityApp(
     onThresholdChanged: (Int) -> Unit
 ) {
     var settingsSelected by rememberSaveable { mutableStateOf(false) }
+    val screenStateHolder = rememberSaveableStateHolder()
     BackHandler(enabled = settingsSelected) { settingsSelected = false }
 
     Scaffold(
@@ -90,16 +93,27 @@ fun UtilityApp(
         }
     ) { innerPadding ->
         Box(Modifier.fillMaxSize().padding(innerPadding).consumeWindowInsets(innerPadding)) {
-            if (settingsSelected) {
-                SettingsScreen(
-                    settings = state.settings,
-                    onCityChanged = onCityChanged,
-                    onUnitChanged = onUnitChanged,
-                    onUmbrellaEnabledChanged = onUmbrellaEnabledChanged,
-                    onThresholdChanged = onThresholdChanged
-                )
-            } else {
-                UtilityScreen(state = state, onRefresh = onRefresh)
+            // Loading/error placeholders must not clamp a city's saved forecast scroll position.
+            val screenKey = when {
+                settingsSelected -> "settings"
+                state.weather == null -> "weather_empty_${state.settings.city.name}"
+                else -> "weather_${state.settings.city.name}"
+            }
+            // Recreate layout nodes too, so a short loading layout cannot clamp restored scroll state.
+            key(screenKey) {
+                screenStateHolder.SaveableStateProvider(screenKey) {
+                    if (settingsSelected) {
+                        SettingsScreen(
+                            settings = state.settings,
+                            onCityChanged = onCityChanged,
+                            onUnitChanged = onUnitChanged,
+                            onUmbrellaEnabledChanged = onUmbrellaEnabledChanged,
+                            onThresholdChanged = onThresholdChanged
+                        )
+                    } else {
+                        UtilityScreen(state = state, onRefresh = onRefresh)
+                    }
+                }
             }
         }
     }

@@ -55,18 +55,12 @@ fun UtilityScreen(state: UtilityUiState, onRefresh: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(
-                    stringResource(R.string.weather_eyebrow),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                Text(
-                    stringResource(R.string.weather_heading),
-                    style = MaterialTheme.typography.headlineLarge,
-                    modifier = Modifier.semantics { heading() }
-                )
-            }
+            Text(
+                stringResource(R.string.weather_heading),
+                style = if (LocalDensity.current.fontScale >= 1.3f) MaterialTheme.typography.titleMedium
+                    else MaterialTheme.typography.titleLarge,
+                modifier = Modifier.weight(1f).semantics { heading() }
+            )
             IconButton(
                 onClick = onRefresh,
                 enabled = !state.isLoading,
@@ -134,6 +128,21 @@ fun UtilityScreen(state: UtilityUiState, onRefresh: () -> Unit) {
             }
             WeatherSummaryCard(weather = weather, temperatureUnit = state.settings.temperatureUnit)
             if (state.settings.umbrellaEnabled) AdviceCard(state.advice)
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    stringResource(R.string.fetched_at, modelTimeLabel(weather.fetchedAt, weather.timezoneId)),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.testTag("forecast_fetched_at")
+                )
+                Text(
+                    weather.observationTime?.let {
+                        stringResource(R.string.model_time, modelTimeLabel(it, weather.timezoneId))
+                    } ?: stringResource(R.string.model_time_unavailable),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
             key(weather.city) {
                 RainForecastCard(
                     periods = state.hourlyPeriods,
@@ -145,11 +154,6 @@ fun UtilityScreen(state: UtilityUiState, onRefresh: () -> Unit) {
                 days = state.dailyForecast,
                 temperatureUnit = state.settings.temperatureUnit,
                 today = state.now.atZone(ZoneId.of(weather.timezoneId)).toLocalDate()
-            )
-            Text(
-                stringResource(R.string.fetched_at, modelTimeLabel(weather.fetchedAt, weather.timezoneId)),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
         DataAttribution()

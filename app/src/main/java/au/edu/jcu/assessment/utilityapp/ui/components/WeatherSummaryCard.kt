@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -41,9 +40,10 @@ import au.edu.jcu.assessment.utilityapp.ui.theme.LocalWeatherColors
 @Composable
 fun WeatherSummaryCard(weather: WeatherSnapshot, temperatureUnit: TemperatureUnit) {
     val palette = LocalWeatherColors.current
+    val largeText = LocalDensity.current.fontScale >= 1.3f
     Card(
         modifier = Modifier.fillMaxWidth().testTag("weather_summary"),
-        shape = RoundedCornerShape(32.dp),
+        shape = RoundedCornerShape(28.dp),
         colors = CardDefaults.cardColors(containerColor = palette.heroStart, contentColor = palette.onHero)
     ) {
         BoxWithConstraints(
@@ -56,59 +56,31 @@ fun WeatherSummaryCard(weather: WeatherSnapshot, temperatureUnit: TemperatureUni
                     drawCircle(palette.onHero.copy(alpha = 0.045f), size.width * 0.81f, center, style = Stroke(1f))
                     drawCircle(palette.onHero.copy(alpha = 0.035f), size.width * 0.97f, center, style = Stroke(1f))
                 }
-                .padding(24.dp)
+                .padding(if (largeText) 16.dp else 20.dp)
         ) {
-            val contentWidth = maxWidth
-            val stacked = LocalDensity.current.fontScale >= 1.3f || contentWidth < 280.dp
-            Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            val showArtwork = !largeText && maxWidth >= 280.dp
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    WeatherIcon(WeatherGlyph.LOCATION, Modifier.size(20.dp), tint = palette.heroMuted)
                     Text(
-                        stringResource(R.string.visual_current_conditions),
-                        color = palette.heroMuted,
-                        style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 1.5.sp)
+                        cityLabel(weather.city),
+                        style = if (largeText) MaterialTheme.typography.titleLarge else MaterialTheme.typography.headlineSmall,
+                        modifier = Modifier.weight(1f).semantics { heading() }.testTag("weather_city")
                     )
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        WeatherIcon(WeatherGlyph.LOCATION, Modifier.size(20.dp), tint = palette.heroMuted)
-                        Text(
-                            cityLabel(weather.city),
-                            style = MaterialTheme.typography.headlineLarge,
-                            modifier = Modifier.weight(1f).semantics { heading() }.testTag("weather_city")
-                        )
-                    }
                 }
-                if (stacked) {
-                    WeatherArtwork(weather.weatherDescription, Modifier.size(116.dp).align(Alignment.CenterHorizontally))
-                    TemperatureAndCondition(weather, temperatureUnit, compact = true)
-                } else {
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            TemperatureAndCondition(weather, temperatureUnit, compact = contentWidth < 330.dp)
-                        }
-                        WeatherArtwork(weather.weatherDescription, Modifier.size(if (contentWidth < 330.dp) 122.dp else 148.dp))
+                Row(
+                    Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        TemperatureAndCondition(weather, temperatureUnit, largeText)
                     }
-                }
-                HorizontalDivider(color = palette.onHero.copy(alpha = 0.16f))
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        WeatherIcon(WeatherGlyph.THERMOMETER, Modifier.size(18.dp), tint = palette.heroMuted)
-                        Text(
-                            if (weather.apparentTemperatureCelsius == null) {
-                                stringResource(R.string.feels_like_unavailable)
-                            } else {
-                                stringResource(R.string.feels_like, temperatureLabel(weather.apparentTemperatureCelsius, temperatureUnit))
-                            },
-                            style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.testTag("feels_like_temperature")
-                        )
-                    }
-                    Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        WeatherIcon(WeatherGlyph.CLOCK, Modifier.size(18.dp), tint = palette.heroMuted)
-                        Text(
-                            weather.observationTime?.let {
-                                stringResource(R.string.model_time, modelTimeLabel(it, weather.timezoneId))
-                            } ?: stringResource(R.string.model_time_unavailable),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = palette.heroMuted
+                    // Decorative artwork yields space to the decision-making text as fonts grow.
+                    if (showArtwork) {
+                        WeatherArtwork(
+                            weather.weatherDescription,
+                            Modifier.size(96.dp).testTag("summary_artwork")
                         )
                     }
                 }
@@ -118,25 +90,35 @@ fun WeatherSummaryCard(weather: WeatherSnapshot, temperatureUnit: TemperatureUni
 }
 
 @Composable
-private fun TemperatureAndCondition(weather: WeatherSnapshot, temperatureUnit: TemperatureUnit, compact: Boolean) {
+private fun TemperatureAndCondition(weather: WeatherSnapshot, temperatureUnit: TemperatureUnit, largeText: Boolean) {
     val palette = LocalWeatherColors.current
     val unavailable = stringResource(R.string.temperature_unavailable_description)
     val temperature = temperatureLabel(weather.temperatureCelsius, temperatureUnit)
     val numberEnd = temperature.indexOf('°').takeIf { it >= 0 } ?: temperature.length
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(
             buildAnnotatedString {
                 append(temperature.substring(0, numberEnd))
-                withStyle(SpanStyle(fontSize = 28.sp, fontWeight = FontWeight.Normal, letterSpacing = 0.sp)) {
+                withStyle(SpanStyle(fontSize = if (largeText) 22.sp else 26.sp, fontWeight = FontWeight.Normal, letterSpacing = 0.sp)) {
                     append(temperature.substring(numberEnd))
                 }
             },
             color = palette.onHero,
-            style = if (compact) MaterialTheme.typography.displayMedium else MaterialTheme.typography.displayLarge,
+            style = if (largeText) MaterialTheme.typography.displaySmall else MaterialTheme.typography.displayMedium,
             modifier = Modifier.testTag("current_temperature").semantics {
                 if (weather.temperatureCelsius == null) contentDescription = unavailable
             }
         )
         Text(weather.weatherDescription, style = MaterialTheme.typography.titleMedium, color = palette.onHero)
+        Text(
+            if (weather.apparentTemperatureCelsius == null) {
+                stringResource(R.string.feels_like_unavailable)
+            } else {
+                stringResource(R.string.feels_like, temperatureLabel(weather.apparentTemperatureCelsius, temperatureUnit))
+            },
+            style = MaterialTheme.typography.bodyMedium,
+            color = palette.heroMuted,
+            modifier = Modifier.testTag("feels_like_temperature")
+        )
     }
 }

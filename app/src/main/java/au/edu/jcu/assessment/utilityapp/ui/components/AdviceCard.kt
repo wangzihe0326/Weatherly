@@ -60,16 +60,15 @@ fun AdviceCard(advice: UmbrellaAdvice) {
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = container, contentColor = content)
     ) {
-        BoxWithConstraints(Modifier.padding(20.dp)) {
+        BoxWithConstraints(Modifier.padding(16.dp)) {
             val stacked = LocalDensity.current.fontScale >= 1.3f || maxWidth < 260.dp
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (stacked) {
-                    AdviceSymbol(kind, accent)
-                    AdviceHeading(title, content)
+                    AdviceHeading(title, content, compact = true)
                 } else {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         AdviceSymbol(kind, accent)
-                        Column(Modifier.weight(1f)) { AdviceHeading(title, content) }
+                        Column(Modifier.weight(1f)) { AdviceHeading(title, content, compact = false) }
                     }
                 }
                 Text(reason, style = MaterialTheme.typography.bodyMedium)
@@ -79,7 +78,7 @@ fun AdviceCard(advice: UmbrellaAdvice) {
 }
 
 @Composable
-private fun AdviceHeading(title: Int, content: androidx.compose.ui.graphics.Color) {
+private fun AdviceHeading(title: Int, content: androidx.compose.ui.graphics.Color, compact: Boolean) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(
             stringResource(R.string.visual_umbrella_check),
@@ -88,8 +87,8 @@ private fun AdviceHeading(title: Int, content: androidx.compose.ui.graphics.Colo
         )
         Text(
             stringResource(title),
-            style = MaterialTheme.typography.titleLarge,
-            modifier = Modifier.semantics { heading() }
+            style = if (compact) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge,
+            modifier = Modifier.semantics { heading() }.testTag("umbrella_decision")
         )
     }
 }
@@ -97,7 +96,7 @@ private fun AdviceHeading(title: Int, content: androidx.compose.ui.graphics.Colo
 @Composable
 private fun AdviceSymbol(kind: AdviceKind, accent: androidx.compose.ui.graphics.Color) {
     Box(
-        modifier = Modifier.size(48.dp).background(accent.copy(alpha = 0.12f), CircleShape),
+        modifier = Modifier.size(40.dp).background(accent.copy(alpha = 0.12f), CircleShape),
         contentAlignment = Alignment.Center
     ) {
         WeatherIcon(

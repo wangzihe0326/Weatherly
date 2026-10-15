@@ -1,4 +1,3 @@
 <resources>
-    <string name="visual_current_conditions">CURRENT CONDITIONS</string>
-    <string name="visual_umbrella_check">NEAR-TERM UMBRELLA CHECK</string>
+    <string name="visual_umbrella_check">CURRENT HOUR + NEXT 2</string>
 </resources>

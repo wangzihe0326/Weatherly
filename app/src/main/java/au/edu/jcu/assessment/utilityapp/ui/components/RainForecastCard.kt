@@ -25,6 +25,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -50,6 +51,7 @@ import au.edu.jcu.assessment.utilityapp.ui.TemperatureUnit
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlinx.coroutines.launch
 
 @Composable
 fun RainForecastCard(
@@ -62,8 +64,13 @@ fun RainForecastCard(
     val selectedIndex = periods.indexOfFirst { it.start.epochSecond == selectedStart }.coerceAtLeast(0)
     val selectedPeriod = periods.getOrNull(selectedIndex)
     val listState = rememberLazyListState()
-    LaunchedEffect(selectedPeriod?.start, selectedIndex) {
-        if (selectedPeriod != null) listState.scrollToItem(selectedIndex)
+    val scope = rememberCoroutineScope()
+    LaunchedEffect(periods.map { it.start.epochSecond }) {
+        // Restore browsing independently of selection. Only an expired choice returns to the current hour.
+        if (selectedStart != null && periods.none { it.start.epochSecond == selectedStart }) {
+            selectedStart = periods.firstOrNull()?.start?.epochSecond
+            listState.scrollToItem(0)
+        }
     }
 
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -114,8 +121,16 @@ fun RainForecastCard(
                 count = periods.size,
                 canGoBack = selectedIndex > 0,
                 canGoForward = selectedIndex < periods.lastIndex,
-                onPrevious = { selectedStart = periods[selectedIndex - 1].start.epochSecond },
-                onNext = { selectedStart = periods[selectedIndex + 1].start.epochSecond }
+                onPrevious = {
+                    val index = selectedIndex - 1
+                    selectedStart = periods[index].start.epochSecond
+                    scope.launch { listState.scrollToItem(index) }
+                },
+                onNext = {
+                    val index = selectedIndex + 1
+                    selectedStart = periods[index].start.epochSecond
+                    scope.launch { listState.scrollToItem(index) }
+                }
             )
         }
         if (selectedPeriod != null) SelectedHourDetails(selectedPeriod, timezoneId, temperatureUnit)
