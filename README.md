@@ -9,7 +9,7 @@ Built from the CP3406 / CP5307 Assessment 1 starter using Kotlin, Jetpack Compos
 
 - Live Open-Meteo weather for Singapore, Townsville and Cairns.
 - Current temperature, feels-like temperature, weather description and model timestamp.
-- Three hourly precipitation probabilities, displayed as explicit intervals in the selected city's timezone.
+- Three selectable hourly precipitation cards with explicit intervals in the selected city's timezone. Tap an hour to see its rain probability; the selection does not change the overall umbrella advice.
 - Umbrella advice when the highest displayed hourly probability meets the selected 30%, 60% or 80% threshold.
 - Celsius/Fahrenheit conversion and an advice visibility switch without extra network requests.
 - Loading, refresh, retry, missing-data and stale-data states. Failed refreshes retain clearly labelled data for the same city; changing city clears the previous city's data.

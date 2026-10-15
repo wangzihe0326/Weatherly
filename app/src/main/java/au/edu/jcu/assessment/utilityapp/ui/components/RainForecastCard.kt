@@ -1,5 +1,6 @@
 package au.edu.jcu.assessment.utilityapp.ui.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -13,13 +14,20 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -27,8 +35,11 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -42,6 +53,10 @@ import java.util.Locale
 
 @Composable
 fun RainForecastCard(periods: List<RainPeriod>, timezoneId: String) {
+    // Follow the actual hour when a refresh advances the forecast window.
+    var selectedStart by rememberSaveable(timezoneId) { mutableStateOf<Long?>(null) }
+    val selectedPeriod = periods.firstOrNull { it.start.epochSecond == selectedStart }
+        ?: periods.firstOrNull()
     BoxWithConstraints(Modifier.fillMaxWidth()) {
         val stacked = LocalDensity.current.fontScale >= 1.3f || maxWidth < 300.dp
         Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -60,24 +75,61 @@ fun RainForecastCard(periods: List<RainPeriod>, timezoneId: String) {
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                if (periods.isNotEmpty()) {
+                    Text(
+                        stringResource(R.string.rain_selection_hint),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
             if (periods.isEmpty()) {
                 Text(stringResource(R.string.rain_empty), style = MaterialTheme.typography.bodyLarge)
             } else if (stacked) {
-                periods.forEachIndexed { index, period ->
-                    RainPeriodTile(period, timezoneId, index, compact = false)
+                Column(Modifier.selectableGroup(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    periods.forEachIndexed { index, period ->
+                        RainPeriodTile(
+                            period, timezoneId, index, compact = false,
+                            selected = period == selectedPeriod,
+                            onSelect = { selectedStart = period.start.epochSecond }
+                        )
+                    }
                 }
             } else {
                 Row(
-                    modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
+                    modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min).selectableGroup(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     periods.forEachIndexed { index, period ->
                         RainPeriodTile(
                             period, timezoneId, index, compact = true,
+                            selected = period == selectedPeriod,
+                            onSelect = { selectedStart = period.start.epochSecond },
                             modifier = Modifier.weight(1f).fillMaxHeight()
                         )
                     }
+                }
+            }
+            if (selectedPeriod != null) {
+                Column(
+                    modifier = Modifier.fillMaxWidth()
+                        .semantics { liveRegion = LiveRegionMode.Polite },
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        periodLabel(selectedPeriod, timezoneId),
+                        modifier = Modifier.testTag("rain_selected_period"),
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        selectedPeriod.probabilityPercent?.let {
+                            stringResource(R.string.rain_selected_probability, probabilityLabel(it))
+                        } ?: stringResource(R.string.rain_selected_unavailable),
+                        modifier = Modifier.testTag("rain_selected_probability"),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
                 }
             }
             Text(
@@ -102,6 +154,8 @@ private fun RainPeriodTile(
     timezoneId: String,
     index: Int,
     compact: Boolean,
+    selected: Boolean,
+    onSelect: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val zone = ZoneId.of(timezoneId)
@@ -112,13 +166,20 @@ private fun RainPeriodTile(
     val dateLabel = if (start.toLocalDate() == end.toLocalDate()) start.format(date) else {
         stringResource(R.string.visual_interval_dates, start.format(date), end.format(date))
     }
+    val shape = RoundedCornerShape(22.dp)
     Card(
-        modifier = modifier.testTag("rain_period_$index"),
-        shape = RoundedCornerShape(22.dp),
+        modifier = modifier.testTag("rain_period_$index")
+            .clip(shape)
+            .selectable(selected = selected, role = Role.Tab, onClick = onSelect),
+        shape = shape,
+        border = BorderStroke(
+            if (selected) 2.dp else 1.dp,
+            if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
+        ),
         colors = CardDefaults.cardColors(
-            containerColor = if (index == 0) MaterialTheme.colorScheme.primaryContainer
+            containerColor = if (selected) MaterialTheme.colorScheme.primaryContainer
             else MaterialTheme.colorScheme.surface,
-            contentColor = if (index == 0) MaterialTheme.colorScheme.onPrimaryContainer
+            contentColor = if (selected) MaterialTheme.colorScheme.onPrimaryContainer
             else MaterialTheme.colorScheme.onSurface
         )
     ) {
@@ -140,15 +201,22 @@ private fun RainPeriodTile(
                     Text(stringResource(R.string.visual_interval_end, end.format(time)), style = MaterialTheme.typography.bodyMedium)
                 }
             } else {
-                Text(periodLabel(period, timezoneId), style = MaterialTheme.typography.bodyLarge)
+                val intervalLabel = periodLabel(period, timezoneId)
+                Text(
+                    intervalLabel,
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.clearAndSetSemantics { contentDescription = intervalLabel }
+                )
             }
             val probability = period.probabilityPercent
             if (probability == null) {
+                val unavailableLabel = stringResource(R.string.rain_unavailable)
                 WeatherIcon(WeatherGlyph.DROPLET, Modifier.size(26.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(
-                    stringResource(R.string.rain_unavailable),
+                    unavailableLabel,
                     style = MaterialTheme.typography.bodyMedium,
-                    textAlign = if (compact) TextAlign.Center else TextAlign.Start
+                    textAlign = if (compact) TextAlign.Center else TextAlign.Start,
+                    modifier = Modifier.semantics { contentDescription = unavailableLabel }
                 )
             } else {
                 val label = probabilityLabel(probability)
@@ -161,6 +229,11 @@ private fun RainPeriodTile(
                 )
                 if (!compact) RainMeter(probability, vertical = false)
             }
+            Text(
+                stringResource(if (selected) R.string.rain_period_selected else R.string.rain_period_view),
+                style = MaterialTheme.typography.labelMedium,
+                modifier = Modifier.clearAndSetSemantics {}
+            )
         }
     }
 }

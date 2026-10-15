@@ -32,6 +32,11 @@
     <string name="advice_unavailable">Not enough current data for advice</string>
     <string name="advice_unavailable_reason">Advice needs three current hourly periods with rain probabilities. Refresh to check again.</string>
     <string name="rain_explanation">Three hourly periods, starting with the current one. Each chance applies to that period only.</string>
+    <string name="rain_selection_hint">Tap an hour to view its rain chance.</string>
+    <string name="rain_period_selected">Selected</string>
+    <string name="rain_period_view">View</string>
+    <string name="rain_selected_probability">%1$s chance of rain during this hour.</string>
+    <string name="rain_selected_unavailable">Rain probability is unavailable for this hour.</string>
     <string name="rain_unavailable">Rain probability unavailable</string>
     <string name="rain_empty">No upcoming hourly rain data was returned.</string>
     <string name="rain_partial">Some periods are missing. Umbrella advice will appear when all three are available.</string>

@@ -4,8 +4,11 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.test.assertContentDescriptionEquals
+import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextEquals
@@ -19,6 +22,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import au.edu.jcu.assessment.utilityapp.data.model.City
 import au.edu.jcu.assessment.utilityapp.data.model.RainPeriod
 import au.edu.jcu.assessment.utilityapp.data.model.WeatherSnapshot
+import au.edu.jcu.assessment.utilityapp.ui.components.periodLabel
 import au.edu.jcu.assessment.utilityapp.ui.theme.MobileTech_UtilityAppTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -92,8 +96,123 @@ class UtilityAppTest {
         )
         showApp(UtilityUiState(weather = weather, now = now))
         compose.onNodeWithText("Not enough current data for advice").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText("Rain probability unavailable").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Rain probability unavailable", useUnmergedTree = true)
+            .performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("rain_period_1").performScrollTo().performClick()
+        assertOnlyRainPeriodSelected(1)
+        compose.onNodeWithTag("rain_period_1").assertContentDescriptionEquals(
+            periodLabel(weather.forecastPeriods[1], weather.timezoneId),
+            "Rain probability unavailable"
+        )
+        compose.onNodeWithTag("rain_selected_period")
+            .assertTextEquals(periodLabel(weather.forecastPeriods[1], weather.timezoneId))
+        compose.onNodeWithTag("rain_selected_probability").performScrollTo()
+            .assertTextEquals("Rain probability is unavailable for this hour.")
+        compose.onNodeWithText("Not enough current data for advice").performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("rain_period_2").performScrollTo().assertIsDisplayed()
+        compose.runOnIdle { assertEquals(0, refreshCount) }
+    }
+
+    @Test
+    fun choosingRainHoursUpdatesDetailsWithoutRefreshingOrChangingOverallAdvice() {
+        val weather = sampleWeather()
+        val originalState = UtilityUiState(weather = weather, now = now)
+        showApp(originalState)
+        assertOnlyRainPeriodSelected(0)
+
+        compose.onNodeWithTag("rain_period_1").performScrollTo().performClick()
+        assertOnlyRainPeriodSelected(1)
+        compose.onNodeWithTag("rain_selected_period")
+            .assertTextEquals(periodLabel(weather.forecastPeriods[1], weather.timezoneId))
+        compose.onNodeWithTag("rain_selected_probability").performScrollTo()
+            .assertTextEquals("40% chance of rain during this hour.")
+
+        compose.onNodeWithTag("rain_period_2").performScrollTo().performClick()
+        assertOnlyRainPeriodSelected(2)
+        compose.onNodeWithTag("rain_selected_period")
+            .assertTextEquals(periodLabel(weather.forecastPeriods[2], weather.timezoneId))
+        compose.onNodeWithTag("rain_selected_probability").performScrollTo()
+            .assertTextEquals("20% chance of rain during this hour.")
+
+        // Inspecting a lower-probability hour must not replace the three-hour advice.
+        compose.onNodeWithText("Consider taking an umbrella").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Below your reminder threshold").assertDoesNotExist()
+        compose.runOnIdle {
+            assertEquals(0, refreshCount)
+            assertEquals(originalState, currentState.value)
+        }
+    }
+
+    @Test
+    fun forecastUpdatesKeepTheChosenHourAndFallBackWhenItExpires() {
+        val weather = sampleWeather()
+        showApp(UtilityUiState(weather = weather, now = now))
+        compose.onNodeWithTag("rain_period_1").performScrollTo().performClick()
+        assertOnlyRainPeriodSelected(1)
+
+        // A fresh forecast advances the window: the chosen hour is now the first tile.
+        val nextNow = now.plusSeconds(3600)
+        val chosenHourUpdated = weather.forecastPeriods[1].copy(probabilityPercent = 45.0)
+        val newLastHour = RainPeriod(
+            start = weather.forecastPeriods.last().end,
+            end = weather.forecastPeriods.last().end.plusSeconds(3600),
+            probabilityPercent = 10.0
+        )
+        val nextWeather = weather.copy(
+            fetchedAt = nextNow,
+            observationTime = nextNow,
+            forecastPeriods = listOf(chosenHourUpdated, weather.forecastPeriods[2], newLastHour)
+        )
+        compose.runOnIdle {
+            currentState.value = currentState.value.copy(weather = nextWeather, now = nextNow)
+        }
+
+        assertOnlyRainPeriodSelected(0)
+        compose.onNodeWithTag("rain_selected_period")
+            .assertTextEquals(periodLabel(chosenHourUpdated, weather.timezoneId))
+        compose.onNodeWithTag("rain_selected_probability").performScrollTo()
+            .assertTextEquals("45% chance of rain during this hour.")
+
+        // Once that hour is no longer in the forecast, select the first available hour.
+        val followingNow = nextNow.plusSeconds(3600)
+        val followingWeather = nextWeather.copy(
+            fetchedAt = followingNow,
+            observationTime = followingNow,
+            forecastPeriods = listOf(
+                weather.forecastPeriods[2],
+                newLastHour,
+                RainPeriod(newLastHour.end, newLastHour.end.plusSeconds(3600), 5.0)
+            )
+        )
+        compose.runOnIdle {
+            currentState.value = currentState.value.copy(weather = followingWeather, now = followingNow)
+        }
+
+        assertOnlyRainPeriodSelected(0)
+        compose.onNodeWithTag("rain_selected_period")
+            .assertTextEquals(periodLabel(followingWeather.forecastPeriods.first(), weather.timezoneId))
+        compose.onNodeWithTag("rain_selected_probability").performScrollTo()
+            .assertTextEquals("20% chance of rain during this hour.")
+        compose.runOnIdle { assertEquals(0, refreshCount) }
+    }
+
+    @Test
+    fun darkThemeAndDoubleTextSizeKeepTheThirdRainHourSelectable() {
+        val weather = sampleWeather()
+        showApp(UtilityUiState(weather = weather, now = now), darkTheme = true, fontScale = 2f)
+
+        compose.onNodeWithTag("rain_period_2").performScrollTo().performClick()
+        assertOnlyRainPeriodSelected(2)
+        compose.onNodeWithTag("rain_period_2").assertContentDescriptionEquals(
+            periodLabel(weather.forecastPeriods[2], weather.timezoneId),
+            "Rain probability 20%"
+        )
+        compose.onNodeWithTag("rain_selected_period").performScrollTo()
+            .assertIsDisplayed()
+            .assertTextEquals(periodLabel(weather.forecastPeriods[2], weather.timezoneId))
+        compose.onNodeWithTag("rain_selected_probability").performScrollTo()
+            .assertIsDisplayed()
+            .assertTextEquals("20% chance of rain during this hour.")
     }
 
     @Test
@@ -104,6 +223,13 @@ class UtilityAppTest {
         compose.onNodeWithTag("weather_tab").performClick()
         compose.onNodeWithTag("current_temperature").assertTextEquals("25°C")
         compose.onNodeWithText("Below your reminder threshold").performScrollTo().assertIsDisplayed()
+    }
+
+    private fun assertOnlyRainPeriodSelected(selectedIndex: Int) {
+        repeat(3) { index ->
+            val tile = compose.onNodeWithTag("rain_period_$index").assertHasClickAction()
+            if (index == selectedIndex) tile.assertIsSelected() else tile.assertIsNotSelected()
+        }
     }
 
     private fun showApp(
