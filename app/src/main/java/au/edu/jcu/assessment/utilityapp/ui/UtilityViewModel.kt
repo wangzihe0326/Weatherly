@@ -3,6 +3,7 @@ package au.edu.jcu.assessment.utilityapp.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import au.edu.jcu.assessment.utilityapp.data.model.City
+import au.edu.jcu.assessment.utilityapp.data.model.hasMeaningfulData
 import au.edu.jcu.assessment.utilityapp.data.repository.EmptyWeatherException
 import au.edu.jcu.assessment.utilityapp.data.repository.InvalidWeatherResponseException
 import au.edu.jcu.assessment.utilityapp.data.repository.WeatherRepository
@@ -38,6 +39,7 @@ class UtilityViewModel(
             try {
                 val weather = repository.fetchWeather(city)
                 check(weather.city == city) { "Repository returned a different city" }
+                if (!weather.hasMeaningfulData()) throw EmptyWeatherException()
                 // Cancellation is cooperative; also reject late, uncancellable results.
                 if (version == requestVersion) {
                     mutableState.update {

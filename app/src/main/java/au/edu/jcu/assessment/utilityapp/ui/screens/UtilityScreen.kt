@@ -20,6 +20,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
@@ -35,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import au.edu.jcu.assessment.utilityapp.R
 import au.edu.jcu.assessment.utilityapp.ui.UtilityUiState
 import au.edu.jcu.assessment.utilityapp.ui.components.AdviceCard
+import au.edu.jcu.assessment.utilityapp.ui.components.DailyForecastCard
 import au.edu.jcu.assessment.utilityapp.ui.components.RainForecastCard
 import au.edu.jcu.assessment.utilityapp.ui.components.ScreenContent
 import au.edu.jcu.assessment.utilityapp.ui.components.WeatherSummaryCard
@@ -42,6 +44,7 @@ import au.edu.jcu.assessment.utilityapp.ui.components.WeatherGlyph
 import au.edu.jcu.assessment.utilityapp.ui.components.WeatherIcon
 import au.edu.jcu.assessment.utilityapp.ui.components.cityLabel
 import au.edu.jcu.assessment.utilityapp.ui.components.modelTimeLabel
+import java.time.ZoneId
 
 @Composable
 fun UtilityScreen(state: UtilityUiState, onRefresh: () -> Unit) {
@@ -131,7 +134,18 @@ fun UtilityScreen(state: UtilityUiState, onRefresh: () -> Unit) {
             }
             WeatherSummaryCard(weather = weather, temperatureUnit = state.settings.temperatureUnit)
             if (state.settings.umbrellaEnabled) AdviceCard(state.advice)
-            RainForecastCard(periods = state.displayedPeriods, timezoneId = weather.timezoneId)
+            key(weather.city) {
+                RainForecastCard(
+                    periods = state.hourlyPeriods,
+                    timezoneId = weather.timezoneId,
+                    temperatureUnit = state.settings.temperatureUnit
+                )
+            }
+            DailyForecastCard(
+                days = state.dailyForecast,
+                temperatureUnit = state.settings.temperatureUnit,
+                today = state.now.atZone(ZoneId.of(weather.timezoneId)).toLocalDate()
+            )
             Text(
                 stringResource(R.string.fetched_at, modelTimeLabel(weather.fetchedAt, weather.timezoneId)),
                 style = MaterialTheme.typography.bodySmall,

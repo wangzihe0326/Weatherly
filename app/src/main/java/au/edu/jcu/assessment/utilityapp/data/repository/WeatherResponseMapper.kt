@@ -1,8 +1,12 @@
 package au.edu.jcu.assessment.utilityapp.data.repository
 
 import au.edu.jcu.assessment.utilityapp.data.model.City
+import au.edu.jcu.assessment.utilityapp.data.model.DailyForecast
 import au.edu.jcu.assessment.utilityapp.data.model.RainPeriod
 import au.edu.jcu.assessment.utilityapp.data.model.WeatherSnapshot
+import au.edu.jcu.assessment.utilityapp.data.model.hasMeaningfulData
+import au.edu.jcu.assessment.utilityapp.data.remote.DailyWeatherResponse
+import au.edu.jcu.assessment.utilityapp.data.remote.HourlyWeatherResponse
 import au.edu.jcu.assessment.utilityapp.data.remote.WeatherResponse
 import java.time.DateTimeException
 import java.time.Instant
@@ -19,8 +23,8 @@ fun mapWeatherResponse(
 ): WeatherSnapshot {
     val timezone = response.timezone
         ?: throw InvalidWeatherResponseException("The weather response has no timezone.")
-    val timezoneId = try {
-        ZoneId.of(timezone).id
+    val zone = try {
+        ZoneId.of(timezone)
     } catch (exception: DateTimeException) {
         throw InvalidWeatherResponseException("The weather response has an invalid timezone.", exception)
     }
@@ -29,34 +33,88 @@ fun mapWeatherResponse(
     val temperature = current?.temperatureCelsius?.takeIf { it.isFinite() }
     val apparentTemperature = current?.apparentTemperatureCelsius?.takeIf { it.isFinite() }
     val description = weatherDescription(current?.weatherCode)
-    val hourly = response.hourly
 
-    // Pair by the ORIGINAL index: filtering invalid timestamps must not shift probabilities.
-    val periods = hourly?.time.orEmpty().mapIndexedNotNull { index, timestamp ->
-        val end = timestamp.toWeatherInstant() ?: return@mapIndexedNotNull null
-        val probability = hourly?.precipitationProbability?.getOrNull(index)
-            ?.takeIf { it.isFinite() && it in 0.0..100.0 }
-        // Open-Meteo's probability at T covers the preceding hour, not the following hour.
-        RainPeriod(start = end.minusSeconds(3600), end = end, probabilityPercent = probability)
-    }.sortedBy { it.end }.distinctBy { it.end }
-
-    if (temperature == null && apparentTemperature == null && description == null &&
-        periods.none { it.probabilityPercent != null }
-    ) {
-        throw EmptyWeatherException()
-    }
-
-    return WeatherSnapshot(
+    val snapshot = WeatherSnapshot(
         city = city,
         temperatureCelsius = temperature,
         apparentTemperatureCelsius = apparentTemperature,
         weatherDescription = description ?: "Weather unavailable",
         observationTime = current?.time.toWeatherInstant(),
         fetchedAt = fetchedAt,
-        timezoneId = timezoneId,
-        forecastPeriods = periods
+        timezoneId = zone.id,
+        forecastPeriods = mapHourlyPeriods(response.hourly),
+        dailyForecast = mapDailyForecast(response.daily, zone)
     )
+    if (!snapshot.hasMeaningfulData()) throw EmptyWeatherException()
+    return snapshot
 }
+
+private fun mapHourlyPeriods(hourly: HourlyWeatherResponse?): List<RainPeriod> {
+    if (hourly == null) return emptyList()
+    // Retain each ORIGINAL index. A missing timestamp must not shift any parallel array.
+    val indices = linkedMapOf<Instant, Int>()
+    hourly.time.orEmpty().forEachIndexed { index, timestamp ->
+        timestamp.toWeatherInstant()?.let { indices.putIfAbsent(it, index) }
+    }
+    val ends = indices.keys.toMutableSet()
+    indices.forEach { (start, index) ->
+        val hasCondition = hourly.temperatureCelsius?.getOrNull(index).finiteOrNull() != null ||
+            hourly.weatherCode?.getOrNull(index).knownCodeOrNull() != null ||
+            hourly.isDay?.getOrNull(index).daylightOrNull() != null
+        if (hasCondition) {
+            // Keep a terminal temperature even when its following rain probability is absent.
+            try {
+                ends += start.plusSeconds(3600)
+            } catch (_: DateTimeException) {
+                // An impossible terminal interval cannot be represented.
+            }
+        }
+    }
+    return ends.sorted().map { end ->
+        val start = end.minusSeconds(3600)
+        val conditionIndex = indices[start]
+        val probabilityIndex = indices[end]
+        val code = conditionIndex?.let { hourly.weatherCode?.getOrNull(it) }.knownCodeOrNull()
+        RainPeriod(
+            start = start,
+            end = end,
+            probabilityPercent = probabilityIndex?.let { hourly.precipitationProbability?.getOrNull(it) }
+                .probabilityOrNull(),
+            temperatureCelsius = conditionIndex?.let { hourly.temperatureCelsius?.getOrNull(it) }.finiteOrNull(),
+            weatherCode = code,
+            weatherDescription = weatherDescription(code) ?: "Weather unavailable",
+            isDay = conditionIndex?.let { hourly.isDay?.getOrNull(it) }.daylightOrNull()
+        )
+    }
+}
+
+private fun mapDailyForecast(daily: DailyWeatherResponse?, zone: ZoneId): List<DailyForecast> {
+    if (daily == null) return emptyList()
+    return daily.time.orEmpty().mapIndexedNotNull { index, timestamp ->
+        val date = timestamp.toWeatherInstant()?.atZone(zone)?.toLocalDate()
+            ?: return@mapIndexedNotNull null
+        var minimum = daily.temperatureMinCelsius?.getOrNull(index).finiteOrNull()
+        var maximum = daily.temperatureMaxCelsius?.getOrNull(index).finiteOrNull()
+        if (minimum != null && maximum != null && minimum > maximum) {
+            minimum = null
+            maximum = null
+        }
+        val code = daily.weatherCode?.getOrNull(index).knownCodeOrNull()
+        DailyForecast(
+            date = date,
+            temperatureMinCelsius = minimum,
+            temperatureMaxCelsius = maximum,
+            weatherCode = code,
+            weatherDescription = weatherDescription(code) ?: "Weather unavailable",
+            maxPrecipitationProbability = daily.maxPrecipitationProbability?.getOrNull(index).probabilityOrNull()
+        )
+    }.sortedBy { it.date }.distinctBy { it.date }
+}
+
+private fun Double?.finiteOrNull(): Double? = this?.takeIf { it.isFinite() }
+private fun Double?.probabilityOrNull(): Double? = this?.takeIf { it.isFinite() && it in 0.0..100.0 }
+private fun Int?.knownCodeOrNull(): Int? = this?.takeIf { weatherDescription(it) != null }
+private fun Int?.daylightOrNull(): Boolean? = when (this) { 0 -> false; 1 -> true; else -> null }
 
 private fun Long?.toWeatherInstant(): Instant? {
     if (this == null || this <= 0) return null

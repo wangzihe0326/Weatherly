@@ -1,8 +1,4 @@
 <resources>
     <string name="visual_current_conditions">CURRENT CONDITIONS</string>
-    <string name="visual_rain_heading">Rain outlook</string>
-    <string name="visual_hourly_forecast">HOURLY FORECAST</string>
-    <string name="visual_interval_end">– %1$s</string>
-    <string name="visual_interval_dates">%1$s → %2$s</string>
-    <string name="visual_umbrella_check">UMBRELLA CHECK</string>
+    <string name="visual_umbrella_check">NEAR-TERM UMBRELLA CHECK</string>
 </resources>

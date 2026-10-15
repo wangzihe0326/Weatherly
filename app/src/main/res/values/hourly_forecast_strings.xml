@@ -1,0 +1,18 @@
+<resources>
+    <string name="hourly_forecast_heading">Next 24 hours</string>
+    <string name="hourly_forecast_eyebrow">HOUR BY HOUR</string>
+    <string name="hourly_forecast_hint">Swipe through the hours or use the arrows. Tap a card for details.</string>
+    <string name="hourly_previous_label">Earlier</string>
+    <string name="hourly_next_label">Later</string>
+    <string name="hourly_previous_accessibility">Select previous forecast hour</string>
+    <string name="hourly_next_accessibility">Select next forecast hour</string>
+    <string name="hourly_range">Hour %1$d of %2$d</string>
+    <string name="hourly_range_accessibility">Selected forecast hour %1$d of %2$d</string>
+    <string name="hourly_temperature">Temperature %1$s</string>
+    <string name="hourly_temperature_missing">Temperature unavailable</string>
+    <string name="hourly_selected_heading">Selected hour</string>
+    <string name="hourly_forecast_empty">No upcoming hourly forecast is available.</string>
+    <string name="hourly_forecast_explanation">Conditions and temperature are for the start of each period. Rain probability covers its full hourly interval.</string>
+    <string name="hourly_forecast_partial">Some forecast values are unavailable. Missing values are not shown as zero.</string>
+    <string name="hourly_forecast_short">Available hours: %1$d of 24.</string>
+</resources>

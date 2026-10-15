@@ -2,10 +2,12 @@ package au.edu.jcu.assessment.utilityapp.data.repository
 
 import au.edu.jcu.assessment.utilityapp.data.model.City
 import au.edu.jcu.assessment.utilityapp.data.remote.CurrentWeatherResponse
+import au.edu.jcu.assessment.utilityapp.data.remote.DailyWeatherResponse
 import au.edu.jcu.assessment.utilityapp.data.remote.HourlyWeatherResponse
 import au.edu.jcu.assessment.utilityapp.data.remote.WeatherResponse
 import com.google.gson.Gson
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -198,6 +200,167 @@ class WeatherResponseMapperTest {
         )
 
         mapWeatherResponse(response, City.SINGAPORE, fetchedAt)
+    }
+
+    @Test
+    fun hourlyConditionsJoinTheIntervalStartByTimestampRatherThanArrayPosition() {
+        val start = firstEnd
+        val response = baseResponse().copy(hourly = HourlyWeatherResponse(
+            time = listOf(start.epochSecond, start.plusSeconds(7200).epochSecond, start.plusSeconds(3600).epochSecond),
+            precipitationProbability = listOf(5.0, 90.0, 30.0),
+            temperatureCelsius = listOf(20.0, 30.0, 25.0),
+            weatherCode = listOf(0, 61, 3),
+            isDay = listOf(0, 1, 1)
+        ))
+
+        val periods = mapWeatherResponse(response, City.SINGAPORE, fetchedAt).forecastPeriods
+        val firstHour = periods.single { it.start == start }
+        val secondHour = periods.single { it.start == start.plusSeconds(3600) }
+
+        assertEquals(20.0, firstHour.temperatureCelsius!!, 0.0)
+        assertEquals(30.0, firstHour.probabilityPercent!!, 0.0)
+        assertEquals(0, firstHour.weatherCode)
+        assertEquals("Clear sky", firstHour.weatherDescription)
+        assertEquals(false, firstHour.isDay)
+        assertEquals(25.0, secondHour.temperatureCelsius!!, 0.0)
+        assertEquals(90.0, secondHour.probabilityPercent!!, 0.0)
+        assertEquals(3, secondHour.weatherCode)
+        assertEquals(true, secondHour.isDay)
+    }
+
+    @Test
+    fun missingTimestampCannotAttachANeighboursConditionsToAnHour() {
+        val response = baseResponse().copy(hourly = HourlyWeatherResponse(
+            time = listOf(firstEnd.epochSecond, null, firstEnd.plusSeconds(7200).epochSecond),
+            precipitationProbability = listOf(10.0, 99.0, 60.0),
+            temperatureCelsius = listOf(20.0, 999.0, 30.0),
+            weatherCode = listOf(0, 95, 3),
+            isDay = listOf(0, 1, 1)
+        ))
+
+        val periods = mapWeatherResponse(response, City.SINGAPORE, fetchedAt).forecastPeriods
+        val missingStart = periods.single { it.start == firstEnd.plusSeconds(3600) }
+        val missingEnd = periods.single { it.start == firstEnd }
+
+        assertNull(missingStart.temperatureCelsius)
+        assertNull(missingStart.weatherCode)
+        assertNull(missingStart.isDay)
+        assertEquals(60.0, missingStart.probabilityPercent!!, 0.0)
+        assertEquals(20.0, missingEnd.temperatureCelsius!!, 0.0)
+        assertNull(missingEnd.probabilityPercent)
+    }
+
+    @Test
+    fun shortOrInvalidConditionArraysRemainUnknown() {
+        val response = baseResponse().copy(hourly = HourlyWeatherResponse(
+            time = listOf(firstEnd.epochSecond, firstEnd.plusSeconds(3600).epochSecond, firstEnd.plusSeconds(7200).epochSecond),
+            precipitationProbability = listOf(10.0, 20.0, 30.0),
+            temperatureCelsius = listOf(21.0, Double.NaN),
+            weatherCode = listOf(999),
+            isDay = listOf(2, 1)
+        ))
+
+        val periods = mapWeatherResponse(response, City.SINGAPORE, fetchedAt).forecastPeriods
+        val firstHour = periods.single { it.start == firstEnd }
+        val secondHour = periods.single { it.start == firstEnd.plusSeconds(3600) }
+
+        assertEquals(21.0, firstHour.temperatureCelsius!!, 0.0)
+        assertNull(firstHour.weatherCode)
+        assertEquals("Weather unavailable", firstHour.weatherDescription)
+        assertNull(firstHour.isDay)
+        assertNull(secondHour.temperatureCelsius)
+        assertNull(secondHour.weatherCode)
+        assertEquals(true, secondHour.isDay)
+        assertEquals(30.0, secondHour.probabilityPercent!!, 0.0)
+    }
+
+    @Test
+    fun aTerminalHourlyTemperatureIsUsefulWithoutCurrentConditionsOrRain() {
+        val response = WeatherResponse(
+            timezone = "Asia/Singapore",
+            hourly = HourlyWeatherResponse(time = listOf(firstEnd.epochSecond), temperatureCelsius = listOf(23.5))
+        )
+
+        val snapshot = mapWeatherResponse(response, City.SINGAPORE, fetchedAt)
+        val hour = snapshot.forecastPeriods.single { it.start == firstEnd }
+
+        assertNull(snapshot.temperatureCelsius)
+        assertEquals(firstEnd.plusSeconds(3600), hour.end)
+        assertEquals(23.5, hour.temperatureCelsius!!, 0.0)
+        assertNull(hour.probabilityPercent)
+    }
+
+    @Test
+    fun dailyDatesUseTheCityTimezoneAndDailyOnlyTemperatureIsUseful() {
+        val midnightInSingapore = Instant.parse("2026-10-14T16:00:00Z")
+        val response = WeatherResponse(
+            timezone = "Asia/Singapore",
+            daily = DailyWeatherResponse(
+                time = listOf(midnightInSingapore.epochSecond),
+                temperatureMinCelsius = listOf(23.0)
+            )
+        )
+
+        val snapshot = mapWeatherResponse(response, City.SINGAPORE, fetchedAt)
+        val day = snapshot.dailyForecast.single()
+
+        assertEquals(LocalDate.parse("2026-10-15"), day.date)
+        assertEquals(23.0, day.temperatureMinCelsius!!, 0.0)
+        assertNull(day.temperatureMaxCelsius)
+        assertNull(day.maxPrecipitationProbability)
+        assertNull(snapshot.temperatureCelsius)
+    }
+
+    @Test
+    fun dailyMissingTimestampAndUnequalArraysDoNotShiftValues() {
+        val midnight = Instant.parse("2026-10-14T16:00:00Z")
+        val response = baseResponse().copy(daily = DailyWeatherResponse(
+            time = listOf(midnight.epochSecond, null, midnight.plusSeconds(172800).epochSecond),
+            temperatureMinCelsius = listOf(20.0, 999.0, 22.0),
+            temperatureMaxCelsius = listOf(30.0),
+            weatherCode = listOf(0, 95, 61),
+            maxPrecipitationProbability = listOf(10.0, 99.0, 30.0)
+        ))
+
+        val days = mapWeatherResponse(response, City.SINGAPORE, fetchedAt).dailyForecast
+
+        assertEquals(listOf(LocalDate.parse("2026-10-15"), LocalDate.parse("2026-10-17")), days.map { it.date })
+        assertEquals(22.0, days[1].temperatureMinCelsius!!, 0.0)
+        assertNull(days[1].temperatureMaxCelsius)
+        assertEquals(61, days[1].weatherCode)
+        assertEquals("Slight rain", days[1].weatherDescription)
+        assertEquals(30.0, days[1].maxPrecipitationProbability!!, 0.0)
+    }
+
+    @Test
+    fun invalidDailyValuesStayUnknownInsteadOfLookingLikeAValidForecast() {
+        val response = baseResponse().copy(daily = DailyWeatherResponse(
+            time = listOf(firstEnd.epochSecond, firstEnd.plusSeconds(86400).epochSecond),
+            temperatureMinCelsius = listOf(32.0, Double.NaN),
+            temperatureMaxCelsius = listOf(20.0, Double.POSITIVE_INFINITY),
+            weatherCode = listOf(999, null),
+            maxPrecipitationProbability = listOf(-1.0, 101.0)
+        ))
+
+        val days = mapWeatherResponse(response, City.SINGAPORE, fetchedAt).dailyForecast
+
+        days.forEach { day ->
+            assertNull(day.temperatureMinCelsius)
+            assertNull(day.temperatureMaxCelsius)
+            assertNull(day.weatherCode)
+            assertNull(day.maxPrecipitationProbability)
+            assertEquals("Weather unavailable", day.weatherDescription)
+        }
+    }
+
+    @Test(expected = EmptyWeatherException::class)
+    fun daylightFlagAloneDoesNotPretendToBeWeatherData() {
+        mapWeatherResponse(
+            WeatherResponse(timezone = "Asia/Singapore",
+                hourly = HourlyWeatherResponse(time = listOf(firstEnd.epochSecond), isDay = listOf(1))),
+            City.SINGAPORE,
+            fetchedAt
+        )
     }
 
     private fun baseResponse() = WeatherResponse(

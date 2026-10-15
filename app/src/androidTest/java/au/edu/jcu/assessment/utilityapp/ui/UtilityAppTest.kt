@@ -4,7 +4,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.test.assertContentDescriptionEquals
+import androidx.compose.ui.test.assertContentDescriptionContains
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -17,9 +17,11 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.unit.Density
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import au.edu.jcu.assessment.utilityapp.data.model.City
+import au.edu.jcu.assessment.utilityapp.data.model.DailyForecast
 import au.edu.jcu.assessment.utilityapp.data.model.RainPeriod
 import au.edu.jcu.assessment.utilityapp.data.model.WeatherSnapshot
 import au.edu.jcu.assessment.utilityapp.ui.components.periodLabel
@@ -30,6 +32,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.time.Instant
+import java.time.LocalDate
 
 /** UI-only fixtures: no network or production Activity is launched by these tests. */
 @RunWith(AndroidJUnit4::class)
@@ -96,20 +99,18 @@ class UtilityAppTest {
         )
         showApp(UtilityUiState(weather = weather, now = now))
         compose.onNodeWithText("Not enough current data for advice").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText("Rain probability unavailable", useUnmergedTree = true)
-            .performScrollTo().assertIsDisplayed()
-        compose.onNodeWithTag("rain_period_1").performScrollTo().performClick()
+        selectVisibleHour(1)
         assertOnlyRainPeriodSelected(1)
-        compose.onNodeWithTag("rain_period_1").assertContentDescriptionEquals(
-            periodLabel(weather.forecastPeriods[1], weather.timezoneId),
-            "Rain probability unavailable"
-        )
+        compose.onNodeWithTag("rain_period_1")
+            .assertContentDescriptionContains(periodLabel(weather.forecastPeriods[1], weather.timezoneId), substring = true)
+            .assertContentDescriptionContains("Rain probability unavailable", substring = true)
         compose.onNodeWithTag("rain_selected_period")
             .assertTextEquals(periodLabel(weather.forecastPeriods[1], weather.timezoneId))
         compose.onNodeWithTag("rain_selected_probability").performScrollTo()
             .assertTextEquals("Rain probability is unavailable for this hour.")
         compose.onNodeWithText("Not enough current data for advice").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithTag("rain_period_2").performScrollTo().assertIsDisplayed()
+        selectVisibleHour(2)
+        compose.onNodeWithTag("rain_period_2").assertIsSelected()
         compose.runOnIdle { assertEquals(0, refreshCount) }
     }
 
@@ -120,14 +121,14 @@ class UtilityAppTest {
         showApp(originalState)
         assertOnlyRainPeriodSelected(0)
 
-        compose.onNodeWithTag("rain_period_1").performScrollTo().performClick()
+        selectVisibleHour(1)
         assertOnlyRainPeriodSelected(1)
         compose.onNodeWithTag("rain_selected_period")
             .assertTextEquals(periodLabel(weather.forecastPeriods[1], weather.timezoneId))
         compose.onNodeWithTag("rain_selected_probability").performScrollTo()
             .assertTextEquals("40% chance of rain during this hour.")
 
-        compose.onNodeWithTag("rain_period_2").performScrollTo().performClick()
+        selectVisibleHour(2)
         assertOnlyRainPeriodSelected(2)
         compose.onNodeWithTag("rain_selected_period")
             .assertTextEquals(periodLabel(weather.forecastPeriods[2], weather.timezoneId))
@@ -147,7 +148,7 @@ class UtilityAppTest {
     fun forecastUpdatesKeepTheChosenHourAndFallBackWhenItExpires() {
         val weather = sampleWeather()
         showApp(UtilityUiState(weather = weather, now = now))
-        compose.onNodeWithTag("rain_period_1").performScrollTo().performClick()
+        selectVisibleHour(1)
         assertOnlyRainPeriodSelected(1)
 
         // A fresh forecast advances the window: the chosen hour is now the first tile.
@@ -201,12 +202,10 @@ class UtilityAppTest {
         val weather = sampleWeather()
         showApp(UtilityUiState(weather = weather, now = now), darkTheme = true, fontScale = 2f)
 
-        compose.onNodeWithTag("rain_period_2").performScrollTo().performClick()
-        assertOnlyRainPeriodSelected(2)
-        compose.onNodeWithTag("rain_period_2").assertContentDescriptionEquals(
-            periodLabel(weather.forecastPeriods[2], weather.timezoneId),
-            "Rain probability 20%"
-        )
+        selectVisibleHour(2)
+        compose.onNodeWithTag("rain_period_2").assertIsSelected()
+            .assertContentDescriptionContains(periodLabel(weather.forecastPeriods[2], weather.timezoneId), substring = true)
+            .assertContentDescriptionContains("Rain probability 20%", substring = true)
         compose.onNodeWithTag("rain_selected_period").performScrollTo()
             .assertIsDisplayed()
             .assertTextEquals(periodLabel(weather.forecastPeriods[2], weather.timezoneId))
@@ -223,6 +222,73 @@ class UtilityAppTest {
         compose.onNodeWithTag("weather_tab").performClick()
         compose.onNodeWithTag("current_temperature").assertTextEquals("25°C")
         compose.onNodeWithText("Below your reminder threshold").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun hourlyControlsReachHour24WithoutChangingNearTermAdvice() {
+        val weather = sampleWeather()
+        val start = weather.forecastPeriods.first().start
+        val extended = weather.copy(forecastPeriods = (0 until 24).map { index ->
+            RainPeriod(
+                start = start.plusSeconds(index * 3600L),
+                end = start.plusSeconds((index + 1) * 3600L),
+                probabilityPercent = if (index < 3) 20.0 else 95.0,
+                temperatureCelsius = 25.0,
+                weatherCode = 2,
+                weatherDescription = "Partly cloudy",
+                isDay = true
+            )
+        })
+        showApp(UtilityUiState(weather = extended, now = now))
+        compose.onNodeWithTag("hourly_previous").performScrollTo().assertIsNotEnabled()
+        repeat(23) { compose.onNodeWithTag("hourly_next").performScrollTo().performClick() }
+        compose.onNodeWithTag("rain_period_23").assertIsSelected()
+        compose.onNodeWithTag("rain_selected_period")
+            .assertTextEquals(periodLabel(extended.forecastPeriods.last(), extended.timezoneId))
+        compose.onNodeWithTag("rain_selected_probability").performScrollTo()
+            .assertTextEquals("95% chance of rain during this hour.")
+        compose.onNodeWithTag("hourly_next").performScrollTo().assertIsNotEnabled()
+        compose.onNodeWithTag("hourly_previous").performClick()
+        compose.onNodeWithTag("rain_period_22").assertIsSelected()
+        compose.onNodeWithText("Below your reminder threshold").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Consider taking an umbrella").assertDoesNotExist()
+        compose.onNodeWithTag("daily_day_6").performScrollTo().assertIsDisplayed()
+        compose.runOnIdle { assertEquals(0, refreshCount) }
+    }
+
+    @Test
+    fun fahrenheitAppliesToHourlyAndDailyTemperatures() {
+        showApp()
+        compose.onNodeWithTag("settings_tab").performClick()
+        compose.onNodeWithTag("unit_FAHRENHEIT").performScrollTo().performClick()
+        compose.onNodeWithTag("weather_tab").performClick()
+        compose.onNodeWithTag("rain_selected_temperature").performScrollTo().assertTextEquals("77°F")
+        compose.onNodeWithTag("daily_low_0", useUnmergedTree = true)
+            .performScrollTo().assertTextEquals("68°F")
+        compose.onNodeWithTag("daily_high_0", useUnmergedTree = true).assertTextEquals("86°F")
+        compose.onNodeWithTag("daily_day_6").performScrollTo().assertIsDisplayed()
+        compose.runOnIdle { assertEquals(0, refreshCount) }
+    }
+
+    @Test
+    fun missingDailyTemperaturesStayUnavailableAndDaySevenRemainsReadable() {
+        val weather = sampleWeather()
+        showApp(
+            UtilityUiState(weather = weather.copy(dailyForecast = weather.dailyForecast.mapIndexed { index, day ->
+                if (index == 0) day.copy(temperatureMinCelsius = null, temperatureMaxCelsius = null) else day
+            }), now = now),
+            darkTheme = true,
+            fontScale = 2f
+        )
+        compose.onNodeWithTag("daily_low_0", useUnmergedTree = true)
+            .performScrollTo().assertTextEquals("—")
+        compose.onNodeWithTag("daily_high_0", useUnmergedTree = true).assertTextEquals("—")
+        compose.onNodeWithTag("daily_day_6").performScrollTo().assertIsDisplayed()
+    }
+
+    private fun selectVisibleHour(indexInPage: Int) {
+        compose.onNodeWithTag("hourly_list").performScrollTo().performScrollToIndex(indexInPage)
+        compose.onNodeWithTag("rain_period_$indexInPage").performScrollTo().performClick()
     }
 
     private fun assertOnlyRainPeriodSelected(selectedIndex: Int) {
@@ -287,7 +353,21 @@ class UtilityAppTest {
                 RainPeriod(
                     start = start.plusSeconds(index * 3600L),
                     end = start.plusSeconds((index + 1) * 3600L),
-                    probabilityPercent = probability
+                    probabilityPercent = probability,
+                    temperatureCelsius = 25.0 + index,
+                    weatherCode = 3,
+                    weatherDescription = "Overcast",
+                    isDay = true
+                )
+            },
+            dailyForecast = (0 until 7).map { index ->
+                DailyForecast(
+                    date = LocalDate.of(2026, 10, 15).plusDays(index.toLong()),
+                    temperatureMinCelsius = 20.0 + index,
+                    temperatureMaxCelsius = 30.0 + index,
+                    weatherCode = 2,
+                    weatherDescription = "Partly cloudy",
+                    maxPrecipitationProbability = 30.0 + index
                 )
             }
         )

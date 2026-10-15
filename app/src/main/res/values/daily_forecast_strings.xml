@@ -1,0 +1,19 @@
+<resources>
+    <string name="daily_forecast_eyebrow">THE WEEK AHEAD</string>
+    <string name="daily_forecast_heading">7-day forecast</string>
+    <string name="daily_forecast_today">Today</string>
+    <string name="daily_forecast_tomorrow">Tomorrow</string>
+    <string name="daily_forecast_low">Low</string>
+    <string name="daily_forecast_high">High</string>
+    <string name="daily_forecast_low_description">Low temperature %1$s</string>
+    <string name="daily_forecast_high_description">High temperature %1$s</string>
+    <string name="daily_forecast_low_unavailable">Low temperature unavailable</string>
+    <string name="daily_forecast_high_unavailable">High temperature unavailable</string>
+    <string name="daily_forecast_peak_rain">Peak rain %1$s</string>
+    <string name="daily_forecast_rain_unavailable">Peak rain unavailable</string>
+    <string name="daily_forecast_empty">No daily forecast available</string>
+    <string name="daily_forecast_empty_helper">Refresh to check for the next seven days.</string>
+    <string name="daily_forecast_partial">Only %1$d of the next seven days are available.</string>
+    <string name="daily_forecast_missing_temperature">A dash means that temperature is unavailable. Its range is not drawn.</string>
+    <string name="daily_forecast_probability_note">Peak rain is the highest hourly precipitation probability for that day, not the combined chance of rain across the whole day.</string>
+</resources>

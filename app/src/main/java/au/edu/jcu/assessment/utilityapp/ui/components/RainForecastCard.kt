@@ -1,26 +1,28 @@
 package au.edu.jcu.assessment.utilityapp.ui.components
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -28,10 +30,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -47,129 +46,168 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import au.edu.jcu.assessment.utilityapp.R
 import au.edu.jcu.assessment.utilityapp.data.model.RainPeriod
+import au.edu.jcu.assessment.utilityapp.ui.TemperatureUnit
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 @Composable
-fun RainForecastCard(periods: List<RainPeriod>, timezoneId: String) {
-    // Follow the actual hour when a refresh advances the forecast window.
+fun RainForecastCard(
+    periods: List<RainPeriod>,
+    timezoneId: String,
+    temperatureUnit: TemperatureUnit = TemperatureUnit.CELSIUS
+) {
+    // A timestamp follows the same hour when refreshing advances the window.
     var selectedStart by rememberSaveable(timezoneId) { mutableStateOf<Long?>(null) }
-    val selectedPeriod = periods.firstOrNull { it.start.epochSecond == selectedStart }
-        ?: periods.firstOrNull()
-    BoxWithConstraints(Modifier.fillMaxWidth()) {
-        val stacked = LocalDensity.current.fontScale >= 1.3f || maxWidth < 300.dp
-        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(
-                    stringResource(R.string.visual_hourly_forecast),
-                    color = MaterialTheme.colorScheme.primary,
-                    style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 1.3.sp)
-                )
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    WeatherIcon(WeatherGlyph.DROPLET, Modifier.size(22.dp), tint = MaterialTheme.colorScheme.primary)
-                    SectionHeading(stringResource(R.string.visual_rain_heading))
-                }
-                Text(
-                    stringResource(R.string.city_time_zone, timezoneId),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                if (periods.isNotEmpty()) {
-                    Text(
-                        stringResource(R.string.rain_selection_hint),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-            if (periods.isEmpty()) {
-                Text(stringResource(R.string.rain_empty), style = MaterialTheme.typography.bodyLarge)
-            } else if (stacked) {
-                Column(Modifier.selectableGroup(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    periods.forEachIndexed { index, period ->
-                        RainPeriodTile(
-                            period, timezoneId, index, compact = false,
-                            selected = period == selectedPeriod,
-                            onSelect = { selectedStart = period.start.epochSecond }
-                        )
-                    }
-                }
-            } else {
-                Row(
-                    modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min).selectableGroup(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    periods.forEachIndexed { index, period ->
-                        RainPeriodTile(
-                            period, timezoneId, index, compact = true,
-                            selected = period == selectedPeriod,
-                            onSelect = { selectedStart = period.start.epochSecond },
-                            modifier = Modifier.weight(1f).fillMaxHeight()
-                        )
-                    }
-                }
-            }
-            if (selectedPeriod != null) {
-                Column(
-                    modifier = Modifier.fillMaxWidth()
-                        .semantics { liveRegion = LiveRegionMode.Polite },
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Text(
-                        periodLabel(selectedPeriod, timezoneId),
-                        modifier = Modifier.testTag("rain_selected_period"),
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Text(
-                        selectedPeriod.probabilityPercent?.let {
-                            stringResource(R.string.rain_selected_probability, probabilityLabel(it))
-                        } ?: stringResource(R.string.rain_selected_unavailable),
-                        modifier = Modifier.testTag("rain_selected_probability"),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-            }
+    val selectedIndex = periods.indexOfFirst { it.start.epochSecond == selectedStart }.coerceAtLeast(0)
+    val selectedPeriod = periods.getOrNull(selectedIndex)
+    val listState = rememberLazyListState()
+    LaunchedEffect(selectedPeriod?.start, selectedIndex) {
+        if (selectedPeriod != null) listState.scrollToItem(selectedIndex)
+    }
+
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(
-                stringResource(R.string.rain_explanation),
+                stringResource(R.string.hourly_forecast_eyebrow),
+                color = MaterialTheme.colorScheme.primary,
+                style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 1.3.sp)
+            )
+            SectionHeading(stringResource(R.string.hourly_forecast_heading))
+            Text(
+                stringResource(R.string.city_time_zone, timezoneId),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            if (periods.isNotEmpty() && (periods.size < 3 || periods.any { it.probabilityPercent == null })) {
+            if (periods.isNotEmpty()) {
                 Text(
-                    stringResource(R.string.rain_partial),
+                    stringResource(R.string.hourly_forecast_hint),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            }
+        }
+        if (periods.isEmpty()) {
+            Text(stringResource(R.string.hourly_forecast_empty), style = MaterialTheme.typography.bodyLarge)
+        } else {
+            val fontScale = LocalDensity.current.fontScale
+            val tileWidth = 104.dp * fontScale.coerceIn(1f, 2f)
+            LazyRow(
+                modifier = Modifier.fillMaxWidth().testTag("hourly_list").selectableGroup(),
+                state = listState,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                itemsIndexed(periods, key = { _, period -> period.start.epochSecond }) { index, period ->
+                    HourlyPeriodTile(
+                        period = period,
+                        timezoneId = timezoneId,
+                        temperatureUnit = temperatureUnit,
+                        index = index,
+                        selected = index == selectedIndex,
+                        onSelect = { selectedStart = period.start.epochSecond },
+                        modifier = Modifier.width(tileWidth)
+                    )
+                }
+            }
+            HourlyNavigation(
+                selected = selectedIndex + 1,
+                count = periods.size,
+                canGoBack = selectedIndex > 0,
+                canGoForward = selectedIndex < periods.lastIndex,
+                onPrevious = { selectedStart = periods[selectedIndex - 1].start.epochSecond },
+                onNext = { selectedStart = periods[selectedIndex + 1].start.epochSecond }
+            )
+        }
+        if (selectedPeriod != null) SelectedHourDetails(selectedPeriod, timezoneId, temperatureUnit)
+        Text(
+            stringResource(R.string.hourly_forecast_explanation),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        if (periods.isNotEmpty() && periods.size < 24) {
+            Text(
+                stringResource(R.string.hourly_forecast_short, periods.size),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        if (periods.any { it.probabilityPercent == null || it.temperatureCelsius == null || it.weatherCode == null }) {
+            Text(
+                stringResource(R.string.hourly_forecast_partial),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun HourlyNavigation(
+    selected: Int,
+    count: Int,
+    canGoBack: Boolean,
+    canGoForward: Boolean,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit
+) {
+    val previousLabel = stringResource(R.string.hourly_previous_accessibility)
+    val nextLabel = stringResource(R.string.hourly_next_accessibility)
+    val rangeLabel = stringResource(R.string.hourly_range_accessibility, selected, count)
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            stringResource(R.string.hourly_range, selected, count),
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.fillMaxWidth().testTag("hourly_range").semantics { contentDescription = rangeLabel },
+            textAlign = TextAlign.Center
+        )
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            OutlinedButton(
+                onClick = onPrevious,
+                enabled = canGoBack,
+                modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("hourly_previous")
+                    .semantics { contentDescription = previousLabel }
+            ) {
+                WeatherIcon(WeatherGlyph.ARROW_RIGHT, Modifier.size(18.dp).rotate(180f))
+                Text(stringResource(R.string.hourly_previous_label), Modifier.padding(start = 6.dp))
+            }
+            OutlinedButton(
+                onClick = onNext,
+                enabled = canGoForward,
+                modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("hourly_next")
+                    .semantics { contentDescription = nextLabel }
+            ) {
+                Text(stringResource(R.string.hourly_next_label), Modifier.padding(end = 6.dp))
+                WeatherIcon(WeatherGlyph.ARROW_RIGHT, Modifier.size(18.dp))
             }
         }
     }
 }
 
 @Composable
-private fun RainPeriodTile(
+private fun HourlyPeriodTile(
     period: RainPeriod,
     timezoneId: String,
+    temperatureUnit: TemperatureUnit,
     index: Int,
-    compact: Boolean,
     selected: Boolean,
     onSelect: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val zone = ZoneId.of(timezoneId)
-    val start = period.start.atZone(zone)
-    val end = period.end.atZone(zone)
-    val date = DateTimeFormatter.ofPattern("EEE d MMM", Locale.getDefault())
-    val time = DateTimeFormatter.ofPattern("HH:mm", Locale.getDefault())
-    val dateLabel = if (start.toLocalDate() == end.toLocalDate()) start.format(date) else {
-        stringResource(R.string.visual_interval_dates, start.format(date), end.format(date))
-    }
+    val start = period.start.atZone(ZoneId.of(timezoneId))
+    val date = start.format(DateTimeFormatter.ofPattern("EEE d MMM", Locale.getDefault()))
+    val time = start.format(DateTimeFormatter.ofPattern("HH:mm", Locale.getDefault()))
+    val interval = periodLabel(period, timezoneId)
+    val temperature = temperatureLabel(period.temperatureCelsius, temperatureUnit)
+    val temperatureDescription = if (period.temperatureCelsius == null) {
+        stringResource(R.string.hourly_temperature_missing)
+    } else stringResource(R.string.hourly_temperature, temperature)
+    val rainDescription = period.probabilityPercent?.let {
+        stringResource(R.string.rain_probability_accessibility, probabilityLabel(it))
+    } ?: stringResource(R.string.rain_unavailable)
     val shape = RoundedCornerShape(22.dp)
     Card(
-        modifier = modifier.testTag("rain_period_$index")
-            .clip(shape)
+        modifier = modifier.testTag("rain_period_$index").clip(shape)
             .selectable(selected = selected, role = Role.Tab, onClick = onSelect),
         shape = shape,
         border = BorderStroke(
@@ -177,57 +215,38 @@ private fun RainPeriodTile(
             if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
         ),
         colors = CardDefaults.cardColors(
-            containerColor = if (selected) MaterialTheme.colorScheme.primaryContainer
-            else MaterialTheme.colorScheme.surface,
-            contentColor = if (selected) MaterialTheme.colorScheme.onPrimaryContainer
-            else MaterialTheme.colorScheme.onSurface
+            containerColor = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
+            contentColor = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
         )
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(if (compact) 12.dp else 20.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-            horizontalAlignment = if (compact) Alignment.CenterHorizontally else Alignment.Start
+            Modifier.fillMaxWidth().heightIn(min = 216.dp).padding(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            if (compact) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.clearAndSetSemantics {
-                        contentDescription = periodLabel(period, timezoneId)
-                    }
-                ) {
-                    Text(dateLabel, style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center)
-                    Text(start.format(time), style = MaterialTheme.typography.titleMedium)
-                    Text(stringResource(R.string.visual_interval_end, end.format(time)), style = MaterialTheme.typography.bodyMedium)
-                }
-            } else {
-                val intervalLabel = periodLabel(period, timezoneId)
-                Text(
-                    intervalLabel,
-                    style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.clearAndSetSemantics { contentDescription = intervalLabel }
-                )
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+                modifier = Modifier.clearAndSetSemantics { contentDescription = interval }
+            ) {
+                Text(date, style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center)
+                Text(time, style = MaterialTheme.typography.titleMedium)
             }
-            val probability = period.probabilityPercent
-            if (probability == null) {
-                val unavailableLabel = stringResource(R.string.rain_unavailable)
-                WeatherIcon(WeatherGlyph.DROPLET, Modifier.size(26.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            Box(Modifier.semantics { contentDescription = period.weatherDescription }) {
+                ForecastConditionIcon(period.weatherCode, Modifier.size(42.dp), isDay = period.isDay)
+            }
+            Text(
+                temperature,
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
+                modifier = Modifier.testTag("hourly_temperature_$index").semantics { contentDescription = temperatureDescription }
+            )
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                WeatherIcon(WeatherGlyph.DROPLET, Modifier.size(14.dp))
                 Text(
-                    unavailableLabel,
+                    period.probabilityPercent?.let { probabilityLabel(it) } ?: stringResource(R.string.temperature_unavailable),
                     style = MaterialTheme.typography.bodyMedium,
-                    textAlign = if (compact) TextAlign.Center else TextAlign.Start,
-                    modifier = Modifier.semantics { contentDescription = unavailableLabel }
+                    modifier = Modifier.semantics { contentDescription = rainDescription }
                 )
-            } else {
-                val label = probabilityLabel(probability)
-                val accessibleLabel = stringResource(R.string.rain_probability_accessibility, label)
-                if (compact) RainMeter(probability, vertical = true)
-                Text(
-                    label,
-                    style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.SemiBold),
-                    modifier = Modifier.semantics { contentDescription = accessibleLabel }
-                )
-                if (!compact) RainMeter(probability, vertical = false)
             }
             Text(
                 stringResource(if (selected) R.string.rain_period_selected else R.string.rain_period_view),
@@ -238,26 +257,43 @@ private fun RainPeriodTile(
     }
 }
 
-/** The numeric label is authoritative; this redundant graphic has no accessibility node. */
 @Composable
-private fun RainMeter(probability: Double, vertical: Boolean) {
-    val track = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
-    val fill = MaterialTheme.colorScheme.primary
-    val fraction = (probability / 100.0).toFloat().coerceIn(0f, 1f)
-    Canvas(
-        if (vertical) Modifier.width(28.dp).height(48.dp).clearAndSetSemantics {}
-        else Modifier.fillMaxWidth().height(8.dp).clearAndSetSemantics {}
+private fun SelectedHourDetails(period: RainPeriod, timezoneId: String, temperatureUnit: TemperatureUnit) {
+    val temperatureMissingLabel = stringResource(R.string.hourly_temperature_missing)
+    Card(
+        modifier = Modifier.fillMaxWidth().testTag("hourly_details"),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
     ) {
-        val corner = CornerRadius(if (vertical) 10.dp.toPx() else 4.dp.toPx())
-        drawRoundRect(track, cornerRadius = corner)
-        if (fraction > 0f) {
-            val fillSize = if (vertical) Size(size.width, size.height * fraction) else Size(size.width * fraction, size.height)
-            val origin = if (vertical) Offset(0f, size.height - fillSize.height) else Offset.Zero
-            drawRoundRect(
-                Brush.verticalGradient(listOf(fill.copy(alpha = 0.65f), fill)),
-                topLeft = origin,
-                size = fillSize,
-                cornerRadius = corner
+        Column(
+            modifier = Modifier.padding(16.dp).semantics { liveRegion = LiveRegionMode.Polite },
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(stringResource(R.string.hourly_selected_heading), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+            Text(
+                periodLabel(period, timezoneId),
+                modifier = Modifier.testTag("rain_selected_period"),
+                style = MaterialTheme.typography.titleMedium
+            )
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                ForecastConditionIcon(period.weatherCode, Modifier.size(36.dp), isDay = period.isDay)
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(period.weatherDescription, style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        temperatureLabel(period.temperatureCelsius, temperatureUnit),
+                        modifier = Modifier.testTag("rain_selected_temperature").semantics {
+                            if (period.temperatureCelsius == null) contentDescription = temperatureMissingLabel
+                        },
+                        style = MaterialTheme.typography.titleLarge
+                    )
+                }
+            }
+            Text(
+                period.probabilityPercent?.let {
+                    stringResource(R.string.rain_selected_probability, probabilityLabel(it))
+                } ?: stringResource(R.string.rain_selected_unavailable),
+                modifier = Modifier.testTag("rain_selected_probability"),
+                style = MaterialTheme.typography.bodyMedium
             )
         }
     }
