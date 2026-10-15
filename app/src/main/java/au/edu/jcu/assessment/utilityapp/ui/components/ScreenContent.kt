@@ -31,8 +31,8 @@ fun ScreenContent(tag: String, content: @Composable ColumnScope.() -> Unit) {
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
                 .testTag(tag)
-                .padding(horizontal = gutter, vertical = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp),
+                .padding(horizontal = gutter, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
             content = content
         )
     }

@@ -14,6 +14,7 @@ Built from the CP3406 / CP5307 Assessment 1 starter using Kotlin, Jetpack Compos
 - Celsius/Fahrenheit conversion and an advice visibility switch without extra network requests.
 - Loading, refresh, retry, missing-data and stale-data states. Failed refreshes retain clearly labelled data for the same city; changing city clears the previous city's data.
 - Shared ViewModel state across the two tabs and configuration changes, plus independently defined light/dark themes.
+- An illustrated weather hero, proportional hourly rain graphics, compact selectable settings and a consistent vector icon family. Larger system text reflows into vertical layouts.
 
 Settings are session-only, as permitted by the assignment. They may reset when the process is restarted. The app uses predefined cities; it does not request location permission.
 

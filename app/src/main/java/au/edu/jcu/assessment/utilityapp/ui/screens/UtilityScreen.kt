@@ -1,17 +1,19 @@
 package au.edu.jcu.assessment.utilityapp.ui.screens
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -21,9 +23,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
@@ -33,35 +37,44 @@ import au.edu.jcu.assessment.utilityapp.ui.UtilityUiState
 import au.edu.jcu.assessment.utilityapp.ui.components.AdviceCard
 import au.edu.jcu.assessment.utilityapp.ui.components.RainForecastCard
 import au.edu.jcu.assessment.utilityapp.ui.components.ScreenContent
-import au.edu.jcu.assessment.utilityapp.ui.components.SectionHeading
 import au.edu.jcu.assessment.utilityapp.ui.components.WeatherSummaryCard
+import au.edu.jcu.assessment.utilityapp.ui.components.WeatherGlyph
+import au.edu.jcu.assessment.utilityapp.ui.components.WeatherIcon
 import au.edu.jcu.assessment.utilityapp.ui.components.cityLabel
 import au.edu.jcu.assessment.utilityapp.ui.components.modelTimeLabel
 
 @Composable
 fun UtilityScreen(state: UtilityUiState, onRefresh: () -> Unit) {
     ScreenContent(tag = "weather_screen") {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        val refreshLabel = stringResource(R.string.refresh_weather)
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    stringResource(R.string.weather_eyebrow),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
                 Text(
                     stringResource(R.string.weather_heading),
                     style = MaterialTheme.typography.headlineLarge,
                     modifier = Modifier.semantics { heading() }
                 )
-                Text(
-                    stringResource(R.string.weather_subtitle),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
             }
             IconButton(
                 onClick = onRefresh,
                 enabled = !state.isLoading,
-                modifier = Modifier.testTag("refresh_button")
+                modifier = Modifier.size(48.dp)
+                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(16.dp))
+                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(16.dp))
+                    .semantics { contentDescription = refreshLabel }
+                    .testTag("refresh_button")
             ) {
-                Icon(
-                    Icons.Default.Refresh,
-                    contentDescription = stringResource(R.string.refresh_weather),
+                WeatherIcon(
+                    WeatherGlyph.REFRESH,
                     tint = if (state.isLoading) MaterialTheme.colorScheme.onSurfaceVariant
                     else MaterialTheme.colorScheme.primary
                 )
@@ -121,7 +134,7 @@ fun UtilityScreen(state: UtilityUiState, onRefresh: () -> Unit) {
             RainForecastCard(periods = state.displayedPeriods, timezoneId = weather.timezoneId)
             Text(
                 stringResource(R.string.fetched_at, modelTimeLabel(weather.fetchedAt, weather.timezoneId)),
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
@@ -141,6 +154,8 @@ private fun StatusCard(
     Card(
         modifier = Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite },
         shape = RoundedCornerShape(24.dp),
+        border = BorderStroke(1.dp, if (isError) MaterialTheme.colorScheme.error.copy(alpha = 0.2f)
+            else MaterialTheme.colorScheme.outlineVariant),
         colors = CardDefaults.cardColors(
             containerColor = if (isError) MaterialTheme.colorScheme.errorContainer
             else MaterialTheme.colorScheme.surfaceContainer,
@@ -149,6 +164,7 @@ private fun StatusCard(
         )
     ) {
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            WeatherIcon(if (isError) WeatherGlyph.CLOUD else WeatherGlyph.CLOCK)
             Text(title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.semantics { heading() })
             Text(message, style = MaterialTheme.typography.bodyLarge)
             if (extraMessage != null) Text(extraMessage, style = MaterialTheme.typography.bodyMedium)
@@ -164,18 +180,34 @@ private fun StatusCard(
 @Composable
 private fun DataAttribution() {
     val uriHandler = LocalUriHandler.current
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        SectionHeading(stringResource(R.string.data_heading))
+    Column(Modifier.padding(top = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            stringResource(R.string.forecast_source_eyebrow),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.semantics { heading() }
+        )
         Text(
             stringResource(R.string.data_explanation),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        TextButton(onClick = { uriHandler.openUri("https://open-meteo.com/") }) {
-            Text(stringResource(R.string.open_meteo_link))
+        val provider: @Composable () -> Unit = {
+            TextButton(onClick = { uriHandler.openUri("https://open-meteo.com/") }) {
+                Text(stringResource(R.string.source_provider_label))
+            }
         }
-        TextButton(onClick = { uriHandler.openUri("https://creativecommons.org/licenses/by/4.0/") }) {
-            Text(stringResource(R.string.licence_link))
+        val licence: @Composable () -> Unit = {
+            TextButton(onClick = { uriHandler.openUri("https://creativecommons.org/licenses/by/4.0/") }) {
+                Text(stringResource(R.string.source_licence_label))
+            }
+        }
+        BoxWithConstraints(Modifier.fillMaxWidth()) {
+            if (maxWidth < 320.dp || LocalDensity.current.fontScale > 1.3f) {
+                Column { provider(); licence() }
+            } else {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { provider(); licence() }
+            }
         }
     }
 }

@@ -8,6 +8,7 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
@@ -16,25 +17,25 @@ private val LightColorScheme = lightColorScheme(
     onPrimary = Color.White,
     primaryContainer = PaleSky,
     onPrimaryContainer = InkBlue,
-    secondary = Color(0xFF48627A),
+    secondary = Color(0xFF4C666F),
     onSecondary = Color.White,
-    secondaryContainer = Color(0xFFDCE8F3),
+    secondaryContainer = Color(0xFFE8F0ED),
     onSecondaryContainer = InkBlue,
     tertiary = Amber,
     onTertiary = Color.White,
     tertiaryContainer = PaleAmber,
-    onTertiaryContainer = Color(0xFF382700),
+    onTertiaryContainer = Color(0xFF493307),
     background = CloudWhite,
-    onBackground = Color(0xFF17212B),
+    onBackground = InkBlue,
     surface = Color.White,
-    onSurface = Color(0xFF17212B),
-    surfaceVariant = Color(0xFFE7EDF3),
-    onSurfaceVariant = Color(0xFF48535E),
-    surfaceContainer = Color(0xFFF0F4F8),
-    surfaceContainerLow = Color(0xFFF6F9FC),
-    surfaceContainerHigh = Color(0xFFE7EDF3),
-    outline = Color(0xFF6F7A85),
-    outlineVariant = Color(0xFFC4CED8),
+    onSurface = InkBlue,
+    surfaceVariant = Color(0xFFEAF0F2),
+    onSurfaceVariant = Color(0xFF52636C),
+    surfaceContainer = Color(0xFFEEF2F3),
+    surfaceContainerLow = Color(0xFFF8FAFB),
+    surfaceContainerHigh = Color(0xFFE5ECEF),
+    outline = Color(0xFF73818A),
+    outlineVariant = Color(0xFFD6E1E5),
     error = Color(0xFFB3261E),
     onError = Color.White,
     errorContainer = Color(0xFFFCE7E5),
@@ -56,7 +57,7 @@ private val DarkColorScheme = darkColorScheme(
     onTertiaryContainer = Color(0xFFFFE6AA),
     background = DarkSurface,
     onBackground = Color(0xFFE3EAF0),
-    surface = Color(0xFF18222C),
+    surface = Color(0xFF1A2A35),
     onSurface = Color(0xFFE3EAF0),
     surfaceVariant = Color(0xFF35414D),
     onSurfaceVariant = Color(0xFFC0CDD8),
@@ -85,5 +86,9 @@ fun MobileTech_UtilityAppTheme(
         darkTheme -> DarkColorScheme
         else -> LightColorScheme
     }
-    MaterialTheme(colorScheme = colorScheme, typography = Typography, content = content)
+    CompositionLocalProvider(
+        LocalWeatherColors provides if (darkTheme) DarkWeatherColors else LightWeatherColors
+    ) {
+        MaterialTheme(colorScheme = colorScheme, typography = Typography, content = content)
+    }
 }

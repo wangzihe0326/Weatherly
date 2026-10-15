@@ -6,43 +6,25 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
-// System fonts work offline and follow the user's preferred text scale.
+// The device sans-serif family works offline and follows system text scaling.
+private fun typeStyle(size: Int, line: Int, weight: FontWeight = FontWeight.Normal, tracking: Float = 0f) =
+    TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = weight, fontSize = size.sp,
+        lineHeight = line.sp, letterSpacing = tracking.sp)
+
 val Typography = Typography(
-    headlineLarge = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Bold,
-        fontSize = 32.sp,
-        lineHeight = 38.sp,
-        letterSpacing = (-0.5).sp
-    ),
-    headlineSmall = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 24.sp,
-        lineHeight = 30.sp
-    ),
-    titleLarge = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 22.sp,
-        lineHeight = 28.sp
-    ),
-    titleMedium = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 16.sp,
-        lineHeight = 24.sp
-    ),
-    bodyLarge = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Normal,
-        fontSize = 16.sp,
-        lineHeight = 24.sp
-    ),
-    bodyMedium = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Normal,
-        fontSize = 14.sp,
-        lineHeight = 21.sp
-    )
+    displayLarge = typeStyle(78, 84, FontWeight.Light, -4f),
+    displayMedium = typeStyle(56, 64, FontWeight.Light, -2f),
+    displaySmall = typeStyle(36, 44, FontWeight.Medium, -1f),
+    headlineLarge = typeStyle(30, 36, FontWeight.SemiBold, -1f),
+    headlineMedium = typeStyle(26, 32, FontWeight.SemiBold, -0.5f),
+    headlineSmall = typeStyle(24, 30, FontWeight.SemiBold),
+    titleLarge = typeStyle(20, 26, FontWeight.SemiBold, -0.3f),
+    titleMedium = typeStyle(16, 24, FontWeight.SemiBold),
+    titleSmall = typeStyle(14, 20, FontWeight.SemiBold),
+    bodyLarge = typeStyle(16, 24),
+    bodyMedium = typeStyle(14, 21),
+    bodySmall = typeStyle(12, 18),
+    labelLarge = typeStyle(14, 20, FontWeight.Medium),
+    labelMedium = typeStyle(12, 18, FontWeight.Medium, 0.3f),
+    labelSmall = typeStyle(12, 16, FontWeight.Medium, 1.2f)
 )

@@ -1,0 +1,10 @@
+<resources>
+    <string name="settings_visual_eyebrow">PREFERENCES</string>
+    <string name="settings_visual_singapore_region">Singapore</string>
+    <string name="settings_visual_queensland_region">Queensland, Australia</string>
+    <string name="settings_visual_threshold_percent">%1$d%%</string>
+    <string name="settings_visual_threshold_lower">Lower</string>
+    <string name="settings_visual_threshold_medium">Medium</string>
+    <string name="settings_visual_threshold_higher">Higher</string>
+    <string name="settings_visual_session_title">Just for this session</string>
+</resources>
