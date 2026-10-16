@@ -55,9 +55,9 @@ class UtilityNavigationStateTest {
 
         assertEquals(weatherScroll, verticalScroll("weather_screen"), 1f)
         assertEquals(hourlyScroll, horizontalScroll(), 0.001f)
-        compose.onNodeWithTag("rain_selected_period")
+        compose.onNodeWithTag("rain_selected_period", useUnmergedTree = true)
             .assertTextEquals(periodLabel(state.value.weather!!.forecastPeriods[19], "Asia/Singapore"))
-        compose.onNodeWithTag("rain_selected_temperature").assertTextEquals("77°F")
+        compose.onNodeWithTag("rain_selected_temperature", useUnmergedTree = true).assertTextEquals("77°F")
         compose.onNodeWithTag("rain_period_19").assertIsSelected()
         compose.onNodeWithTag("settings_tab").performClick()
         assertEquals(settingsScroll, verticalScroll("settings_screen"), 1f)
@@ -82,7 +82,7 @@ class UtilityNavigationStateTest {
         assertEquals(settingsScroll, verticalScroll("settings_screen"), 1f)
         compose.onNodeWithTag("weather_tab").performClick()
         compose.onNodeWithTag("rain_period_19").assertIsSelected()
-        compose.onNodeWithTag("rain_selected_period")
+        compose.onNodeWithTag("rain_selected_period", useUnmergedTree = true)
             .assertTextEquals(periodLabel(state.value.weather!!.forecastPeriods[19], "Asia/Singapore"))
         assertEquals(hourlyScroll, horizontalScroll(), 0.001f)
         assertEquals(weatherScroll, verticalScroll("weather_screen"), 1f)
@@ -101,7 +101,7 @@ class UtilityNavigationStateTest {
         assertEquals(0f, verticalScroll("weather_screen"), 1f)
         assertEquals(0f, horizontalScroll(), 0.001f)
         compose.onNodeWithTag("rain_period_0").assertIsSelected()
-        compose.onNodeWithTag("rain_selected_period")
+        compose.onNodeWithTag("rain_selected_period", useUnmergedTree = true)
             .assertTextEquals(periodLabel(state.value.weather!!.forecastPeriods.first(), "Australia/Brisbane"))
     }
 
@@ -141,7 +141,7 @@ class UtilityNavigationStateTest {
         assertEquals(weatherScroll, verticalScroll("weather_screen"), 1f)
         assertEquals(hourlyScroll, horizontalScroll(), 0.001f)
         compose.onNodeWithTag("rain_period_19").assertIsSelected()
-        compose.onNodeWithTag("rain_selected_period")
+        compose.onNodeWithTag("rain_selected_period", useUnmergedTree = true)
             .assertTextEquals(periodLabel(state.value.weather!!.forecastPeriods[19], "Asia/Singapore"))
     }
 
@@ -162,7 +162,7 @@ class UtilityNavigationStateTest {
 
         assertEquals(0f, horizontalScroll(), 0.001f)
         compose.onNodeWithTag("rain_period_0").assertIsSelected()
-        compose.onNodeWithTag("rain_selected_period")
+        compose.onNodeWithTag("rain_selected_period", useUnmergedTree = true)
             .assertTextEquals(periodLabel(state.value.hourlyPeriods.first(), "Asia/Singapore"))
     }
 

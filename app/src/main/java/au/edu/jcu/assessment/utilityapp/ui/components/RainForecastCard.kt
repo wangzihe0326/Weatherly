@@ -223,7 +223,7 @@ private fun HourlyPeriodTile(
     val shape = RoundedCornerShape(22.dp)
     Card(
         modifier = modifier.testTag("rain_period_$index").clip(shape)
-            .selectable(selected = selected, role = Role.Tab, onClick = onSelect),
+            .selectable(selected = selected, role = Role.RadioButton, onClick = onSelect),
         shape = shape,
         border = BorderStroke(
             if (selected) 2.dp else 1.dp,
@@ -275,13 +275,29 @@ private fun HourlyPeriodTile(
 @Composable
 private fun SelectedHourDetails(period: RainPeriod, timezoneId: String, temperatureUnit: TemperatureUnit) {
     val temperatureMissingLabel = stringResource(R.string.hourly_temperature_missing)
+    val temperature = temperatureLabel(period.temperatureCelsius, temperatureUnit)
+    val temperatureDescription = if (period.temperatureCelsius == null) temperatureMissingLabel
+        else stringResource(R.string.hourly_temperature, temperature)
+    val probabilityDescription = period.probabilityPercent?.let {
+        stringResource(R.string.rain_selected_probability, probabilityLabel(it))
+    } ?: stringResource(R.string.rain_selected_unavailable)
+    val description = stringResource(
+        R.string.hourly_selected_description,
+        periodLabel(period, timezoneId),
+        period.weatherDescription,
+        temperatureDescription,
+        probabilityDescription
+    )
     Card(
-        modifier = Modifier.fillMaxWidth().testTag("hourly_details"),
+        modifier = Modifier.fillMaxWidth().testTag("hourly_details").clearAndSetSemantics {
+            contentDescription = description
+            liveRegion = LiveRegionMode.Polite
+        },
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
     ) {
         Column(
-            modifier = Modifier.padding(16.dp).semantics { liveRegion = LiveRegionMode.Polite },
+            modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text(stringResource(R.string.hourly_selected_heading), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
@@ -295,7 +311,7 @@ private fun SelectedHourDetails(period: RainPeriod, timezoneId: String, temperat
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(period.weatherDescription, style = MaterialTheme.typography.bodyLarge)
                     Text(
-                        temperatureLabel(period.temperatureCelsius, temperatureUnit),
+                        temperature,
                         modifier = Modifier.testTag("rain_selected_temperature").semantics {
                             if (period.temperatureCelsius == null) contentDescription = temperatureMissingLabel
                         },
@@ -304,9 +320,7 @@ private fun SelectedHourDetails(period: RainPeriod, timezoneId: String, temperat
                 }
             }
             Text(
-                period.probabilityPercent?.let {
-                    stringResource(R.string.rain_selected_probability, probabilityLabel(it))
-                } ?: stringResource(R.string.rain_selected_unavailable),
+                probabilityDescription,
                 modifier = Modifier.testTag("rain_selected_probability"),
                 style = MaterialTheme.typography.bodyMedium
             )

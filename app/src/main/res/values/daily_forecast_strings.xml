@@ -10,6 +10,9 @@
     <string name="daily_forecast_low_unavailable">Low temperature unavailable</string>
     <string name="daily_forecast_high_unavailable">High temperature unavailable</string>
     <string name="daily_forecast_peak_rain">Peak rain %1$s</string>
+    <string name="daily_forecast_peak_rain_description">Peak hourly rain probability %1$s</string>
+    <string name="daily_forecast_date_description">%1$s, %2$s</string>
+    <string name="daily_forecast_description">%1$s. %2$s. %3$s. %4$s. %5$s.</string>
     <string name="daily_forecast_rain_unavailable">Peak rain unavailable</string>
     <string name="daily_forecast_empty">No daily forecast available</string>
     <string name="daily_forecast_empty_helper">Refresh to check for the next seven days.</string>

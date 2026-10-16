@@ -150,11 +150,29 @@ private fun DailyForecastRow(
     scaleMaximum: Double?,
     stacked: Boolean
 ) {
+    val (low, high) = day.validTemperatures()
+    val fullDate = day.date.format(DateTimeFormatter.ofPattern("EEEE d MMMM", Locale.getDefault()))
+    val dateDescription = when (day.date) {
+        today, today.plusDays(1) -> stringResource(R.string.daily_forecast_date_description, dailyDateTitle(day.date, today), fullDate)
+        else -> fullDate
+    }
+    val lowDescription = if (low == null) stringResource(R.string.daily_forecast_low_unavailable)
+        else stringResource(R.string.daily_forecast_low_description, temperatureLabel(low, temperatureUnit))
+    val highDescription = if (high == null) stringResource(R.string.daily_forecast_high_unavailable)
+        else stringResource(R.string.daily_forecast_high_description, temperatureLabel(high, temperatureUnit))
+    val probability = day.maxPrecipitationProbability?.takeIf { it.isFinite() && it in 0.0..100.0 }
+    val rainDescription = if (probability == null) stringResource(R.string.daily_forecast_rain_unavailable)
+        else stringResource(R.string.daily_forecast_peak_rain_description, probabilityLabel(probability))
+    val description = stringResource(
+        R.string.daily_forecast_description, dateDescription, day.weatherDescription,
+        lowDescription, highDescription, rainDescription
+    )
     // Today is contextual emphasis only. These rows deliberately have no click or selection semantics.
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .testTag("daily_day_$index")
+            .clearAndSetSemantics { contentDescription = description }
             .background(
                 if (day.date == today) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
                 else Color.Transparent,
@@ -219,11 +237,7 @@ private fun DailyForecastRow(
 @Composable
 private fun DailyDate(date: LocalDate, today: LocalDate, modifier: Modifier = Modifier) {
     val locale = Locale.getDefault()
-    val dayTitle = when (date) {
-        today -> stringResource(R.string.daily_forecast_today)
-        today.plusDays(1) -> stringResource(R.string.daily_forecast_tomorrow)
-        else -> date.format(DateTimeFormatter.ofPattern("EEE", locale))
-    }
+    val dayTitle = dailyDateTitle(date, today)
     Column(modifier, verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Text(
             dayTitle,
@@ -237,6 +251,13 @@ private fun DailyDate(date: LocalDate, today: LocalDate, modifier: Modifier = Mo
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
+}
+
+@Composable
+private fun dailyDateTitle(date: LocalDate, today: LocalDate): String = when (date) {
+    today -> stringResource(R.string.daily_forecast_today)
+    today.plusDays(1) -> stringResource(R.string.daily_forecast_tomorrow)
+    else -> date.format(DateTimeFormatter.ofPattern("EEE", Locale.getDefault()))
 }
 
 @Composable
@@ -259,11 +280,7 @@ private fun DailyTemperatures(
     scaleMaximum: Double?,
     modifier: Modifier
 ) {
-    val low = day.temperatureMinCelsius?.takeIf { it.isFinite() }
-    val high = day.temperatureMaxCelsius?.takeIf { it.isFinite() }
-    val inverted = low != null && high != null && low > high
-    val validLow = low?.takeUnless { inverted }
-    val validHigh = high?.takeUnless { inverted }
+    val (validLow, validHigh) = day.validTemperatures()
     Row(
         modifier = modifier,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -351,7 +368,12 @@ private fun TemperatureRangeBar(
 }
 
 private fun DailyForecast.validTemperatureRange(): ClosedFloatingPointRange<Double>? {
-    val low = temperatureMinCelsius?.takeIf { it.isFinite() } ?: return null
-    val high = temperatureMaxCelsius?.takeIf { it.isFinite() } ?: return null
-    return if (low <= high) low..high else null
+    val (low, high) = validTemperatures()
+    return if (low != null && high != null) low..high else null
+}
+
+private fun DailyForecast.validTemperatures(): Pair<Double?, Double?> {
+    val low = temperatureMinCelsius?.takeIf { it.isFinite() }
+    val high = temperatureMaxCelsius?.takeIf { it.isFinite() }
+    return if (low != null && high != null && low > high) null to null else low to high
 }

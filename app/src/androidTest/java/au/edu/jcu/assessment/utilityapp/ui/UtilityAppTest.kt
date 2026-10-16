@@ -104,9 +104,9 @@ class UtilityAppTest {
         compose.onNodeWithTag("rain_period_1")
             .assertContentDescriptionContains(periodLabel(weather.forecastPeriods[1], weather.timezoneId), substring = true)
             .assertContentDescriptionContains("Rain probability unavailable", substring = true)
-        compose.onNodeWithTag("rain_selected_period")
+        compose.onNodeWithTag("rain_selected_period", useUnmergedTree = true)
             .assertTextEquals(periodLabel(weather.forecastPeriods[1], weather.timezoneId))
-        compose.onNodeWithTag("rain_selected_probability").performScrollTo()
+        compose.onNodeWithTag("rain_selected_probability", useUnmergedTree = true).performScrollTo()
             .assertTextEquals("Rain probability is unavailable for this hour.")
         compose.onNodeWithText("Not enough current data for advice").performScrollTo().assertIsDisplayed()
         selectVisibleHour(2)
@@ -123,16 +123,16 @@ class UtilityAppTest {
 
         selectVisibleHour(1)
         assertOnlyRainPeriodSelected(1)
-        compose.onNodeWithTag("rain_selected_period")
+        compose.onNodeWithTag("rain_selected_period", useUnmergedTree = true)
             .assertTextEquals(periodLabel(weather.forecastPeriods[1], weather.timezoneId))
-        compose.onNodeWithTag("rain_selected_probability").performScrollTo()
+        compose.onNodeWithTag("rain_selected_probability", useUnmergedTree = true).performScrollTo()
             .assertTextEquals("40% chance of rain during this hour.")
 
         selectVisibleHour(2)
         assertOnlyRainPeriodSelected(2)
-        compose.onNodeWithTag("rain_selected_period")
+        compose.onNodeWithTag("rain_selected_period", useUnmergedTree = true)
             .assertTextEquals(periodLabel(weather.forecastPeriods[2], weather.timezoneId))
-        compose.onNodeWithTag("rain_selected_probability").performScrollTo()
+        compose.onNodeWithTag("rain_selected_probability", useUnmergedTree = true).performScrollTo()
             .assertTextEquals("20% chance of rain during this hour.")
 
         // Inspecting a lower-probability hour must not replace the three-hour advice.
@@ -169,9 +169,9 @@ class UtilityAppTest {
         }
 
         assertOnlyRainPeriodSelected(0)
-        compose.onNodeWithTag("rain_selected_period")
+        compose.onNodeWithTag("rain_selected_period", useUnmergedTree = true)
             .assertTextEquals(periodLabel(chosenHourUpdated, weather.timezoneId))
-        compose.onNodeWithTag("rain_selected_probability").performScrollTo()
+        compose.onNodeWithTag("rain_selected_probability", useUnmergedTree = true).performScrollTo()
             .assertTextEquals("45% chance of rain during this hour.")
 
         // Once that hour is no longer in the forecast, select the first available hour.
@@ -190,9 +190,9 @@ class UtilityAppTest {
         }
 
         assertOnlyRainPeriodSelected(0)
-        compose.onNodeWithTag("rain_selected_period")
+        compose.onNodeWithTag("rain_selected_period", useUnmergedTree = true)
             .assertTextEquals(periodLabel(followingWeather.forecastPeriods.first(), weather.timezoneId))
-        compose.onNodeWithTag("rain_selected_probability").performScrollTo()
+        compose.onNodeWithTag("rain_selected_probability", useUnmergedTree = true).performScrollTo()
             .assertTextEquals("20% chance of rain during this hour.")
         compose.runOnIdle { assertEquals(0, refreshCount) }
     }
@@ -206,10 +206,10 @@ class UtilityAppTest {
         compose.onNodeWithTag("rain_period_2").assertIsSelected()
             .assertContentDescriptionContains(periodLabel(weather.forecastPeriods[2], weather.timezoneId), substring = true)
             .assertContentDescriptionContains("Rain probability 20%", substring = true)
-        compose.onNodeWithTag("rain_selected_period").performScrollTo()
+        compose.onNodeWithTag("rain_selected_period", useUnmergedTree = true).performScrollTo()
             .assertIsDisplayed()
             .assertTextEquals(periodLabel(weather.forecastPeriods[2], weather.timezoneId))
-        compose.onNodeWithTag("rain_selected_probability").performScrollTo()
+        compose.onNodeWithTag("rain_selected_probability", useUnmergedTree = true).performScrollTo()
             .assertIsDisplayed()
             .assertTextEquals("20% chance of rain during this hour.")
     }
@@ -243,9 +243,9 @@ class UtilityAppTest {
         compose.onNodeWithTag("hourly_previous").performScrollTo().assertIsNotEnabled()
         repeat(23) { compose.onNodeWithTag("hourly_next").performScrollTo().performClick() }
         compose.onNodeWithTag("rain_period_23").assertIsSelected()
-        compose.onNodeWithTag("rain_selected_period")
+        compose.onNodeWithTag("rain_selected_period", useUnmergedTree = true)
             .assertTextEquals(periodLabel(extended.forecastPeriods.last(), extended.timezoneId))
-        compose.onNodeWithTag("rain_selected_probability").performScrollTo()
+        compose.onNodeWithTag("rain_selected_probability", useUnmergedTree = true).performScrollTo()
             .assertTextEquals("95% chance of rain during this hour.")
         compose.onNodeWithTag("hourly_next").performScrollTo().assertIsNotEnabled()
         compose.onNodeWithTag("hourly_previous").performClick()
@@ -262,7 +262,7 @@ class UtilityAppTest {
         compose.onNodeWithTag("settings_tab").performClick()
         compose.onNodeWithTag("unit_FAHRENHEIT").performScrollTo().performClick()
         compose.onNodeWithTag("weather_tab").performClick()
-        compose.onNodeWithTag("rain_selected_temperature").performScrollTo().assertTextEquals("77°F")
+        compose.onNodeWithTag("rain_selected_temperature", useUnmergedTree = true).performScrollTo().assertTextEquals("77°F")
         compose.onNodeWithTag("daily_low_0", useUnmergedTree = true)
             .performScrollTo().assertTextEquals("68°F")
         compose.onNodeWithTag("daily_high_0", useUnmergedTree = true).assertTextEquals("86°F")
