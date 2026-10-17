@@ -121,7 +121,49 @@ class WeatherResponseMapperTest {
         assertNull(snapshot.apparentTemperatureCelsius)
         assertNull(snapshot.observationTime)
         assertEquals("Weather unavailable", snapshot.weatherDescription)
+        assertNull(snapshot.weatherCode)
+        assertNull(snapshot.isDay)
         assertNull(snapshot.forecastPeriods.single().probabilityPercent)
+    }
+
+    @Test
+    fun currentDaylightJsonMapsOnlyZeroAndOneWithoutInferringFromTheObservationHour() {
+        for ((wireValue, expected) in listOf(0 to false, 1 to true, -1 to null, 2 to null)) {
+            val response = Gson().fromJson(
+                """{
+                    "timezone":"Asia/Singapore",
+                    "current":{"time":${fetchedAt.epochSecond},"weather_code":0,"is_day":$wireValue}
+                }""",
+                WeatherResponse::class.java
+            )
+
+            val snapshot = mapWeatherResponse(response, City.SINGAPORE, fetchedAt)
+
+            assertEquals(expected, snapshot.isDay)
+            assertEquals(0, snapshot.weatherCode)
+            assertEquals("Clear sky", snapshot.weatherDescription)
+        }
+    }
+
+    @Test
+    fun missingOrExplicitlyNullCurrentDaylightDoesNotBorrowTheHourlyFlag() {
+        for (currentFields in listOf("\"temperature_2m\":28.5", "\"temperature_2m\":28.5,\"is_day\":null")) {
+            val response = Gson().fromJson(
+                """{
+                    "timezone":"Asia/Singapore",
+                    "current":{$currentFields},
+                    "hourly":{"time":[${firstEnd.epochSecond}],"weather_code":[61],"is_day":[1]}
+                }""",
+                WeatherResponse::class.java
+            )
+
+            val snapshot = mapWeatherResponse(response, City.SINGAPORE, fetchedAt)
+
+            assertNull(snapshot.isDay)
+            assertNull(snapshot.weatherCode)
+            assertEquals("Weather unavailable", snapshot.weatherDescription)
+            assertEquals(true, snapshot.forecastPeriods.single { it.start == firstEnd }.isDay)
+        }
     }
 
     @Test
@@ -137,6 +179,7 @@ class WeatherResponseMapperTest {
         assertNull(snapshot.temperatureCelsius)
         assertEquals(31.5, snapshot.apparentTemperatureCelsius!!, 0.0)
         assertEquals("Weather unavailable", snapshot.weatherDescription)
+        assertNull(snapshot.weatherCode)
     }
 
     @Test
@@ -358,6 +401,15 @@ class WeatherResponseMapperTest {
         mapWeatherResponse(
             WeatherResponse(timezone = "Asia/Singapore",
                 hourly = HourlyWeatherResponse(time = listOf(firstEnd.epochSecond), isDay = listOf(1))),
+            City.SINGAPORE,
+            fetchedAt
+        )
+    }
+
+    @Test(expected = EmptyWeatherException::class)
+    fun currentDaylightFlagAloneDoesNotPretendToBeWeatherData() {
+        mapWeatherResponse(
+            WeatherResponse(timezone = "Asia/Singapore", current = CurrentWeatherResponse(isDay = 1)),
             City.SINGAPORE,
             fetchedAt
         )

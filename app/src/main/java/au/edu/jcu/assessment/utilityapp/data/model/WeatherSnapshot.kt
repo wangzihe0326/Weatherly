@@ -33,7 +33,9 @@ data class WeatherSnapshot(
     val fetchedAt: Instant,
     val timezoneId: String,
     val forecastPeriods: List<RainPeriod> = emptyList(),
-    val dailyForecast: List<DailyForecast> = emptyList()
+    val dailyForecast: List<DailyForecast> = emptyList(),
+    val weatherCode: Int? = null,
+    val isDay: Boolean? = null
 )
 
 /** A partial hourly or daily forecast is useful even when current conditions are missing. */

@@ -58,7 +58,7 @@ class WeatherRepositoryIntegrationTest {
         assertEquals("/v1/forecast", url.encodedPath)
         assertEquals(-19.26639, requireNotNull(url.queryParameter("latitude")).toDouble(), 0.000001)
         assertEquals(146.80570, requireNotNull(url.queryParameter("longitude")).toDouble(), 0.000001)
-        assertEquals("temperature_2m,apparent_temperature,weather_code", url.queryParameter("current"))
+        assertEquals("temperature_2m,apparent_temperature,weather_code,is_day", url.queryParameter("current"))
         assertEquals("temperature_2m,weather_code,is_day,precipitation_probability", url.queryParameter("hourly"))
         assertEquals("weather_code,temperature_2m_min,temperature_2m_max,precipitation_probability_max", url.queryParameter("daily"))
         assertEquals("7", url.queryParameter("forecast_days"))
@@ -72,6 +72,8 @@ class WeatherRepositoryIntegrationTest {
         assertEquals(28.4, snapshot.temperatureCelsius!!, 0.0)
         assertEquals(33.7, snapshot.apparentTemperatureCelsius!!, 0.0)
         assertEquals("Slight rain showers", snapshot.weatherDescription)
+        assertEquals(80, snapshot.weatherCode)
+        assertEquals(true, snapshot.isDay)
         assertEquals(Instant.parse("2025-01-01T00:00:00Z"), snapshot.observationTime)
         assertEquals(fetchedAt, snapshot.fetchedAt)
         assertEquals("Australia/Brisbane", snapshot.timezoneId)
@@ -140,6 +142,8 @@ class WeatherRepositoryIntegrationTest {
 
         assertEquals(City.CAIRNS, snapshot.city)
         assertNull(snapshot.temperatureCelsius)
+        assertNull(snapshot.weatherCode)
+        assertNull(snapshot.isDay)
         assertEquals(20.0, firstHour.temperatureCelsius!!, 0.0)
         assertEquals(3.0, firstHour.probabilityPercent!!, 0.0)
         assertEquals(0, firstHour.weatherCode)
@@ -169,14 +173,16 @@ class WeatherRepositoryIntegrationTest {
                 "time": "unixtime",
                 "temperature_2m": "°C",
                 "apparent_temperature": "°C",
-                "weather_code": "wmo code"
+                "weather_code": "wmo code",
+                "is_day": ""
               },
               "current": {
                 "time": 1735689600,
                 "interval": 900,
                 "temperature_2m": 28.4,
                 "apparent_temperature": 33.7,
-                "weather_code": 80
+                "weather_code": 80,
+                "is_day": 1
               },
               "hourly_units": {"time":"unixtime","precipitation_probability":"%"},
               "hourly": {

@@ -21,8 +21,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import au.edu.jcu.assessment.utilityapp.R
@@ -30,9 +33,12 @@ import au.edu.jcu.assessment.utilityapp.data.AdviceKind
 import au.edu.jcu.assessment.utilityapp.data.UmbrellaAdvice
 
 @Composable
-fun AdviceCard(advice: UmbrellaAdvice) {
+fun AdviceCard(advice: UmbrellaAdvice, timezoneId: String) {
     val peak = advice.peakProbability
-    val kind = if (peak == null) AdviceKind.UNAVAILABLE else advice.kind
+    val trigger = advice.firstTriggerPeriod
+    val kind = if (peak == null || (advice.kind == AdviceKind.BRING_UMBRELLA && trigger == null)) {
+        AdviceKind.UNAVAILABLE
+    } else advice.kind
     val isAlert = kind == AdviceKind.BRING_UMBRELLA
     val title = when (kind) {
         AdviceKind.BRING_UMBRELLA -> R.string.advice_bring
@@ -40,11 +46,7 @@ fun AdviceCard(advice: UmbrellaAdvice) {
         AdviceKind.UNAVAILABLE -> R.string.advice_unavailable
     }
     val reason = when (kind) {
-        AdviceKind.BRING_UMBRELLA -> stringResource(
-            R.string.advice_bring_reason,
-            probabilityLabel(requireNotNull(peak)),
-            advice.thresholdPercent
-        )
+        AdviceKind.BRING_UMBRELLA -> null
         AdviceKind.BELOW_THRESHOLD -> stringResource(
             R.string.advice_below_reason,
             probabilityLabel(requireNotNull(peak)),
@@ -71,7 +73,38 @@ fun AdviceCard(advice: UmbrellaAdvice) {
                         Column(Modifier.weight(1f)) { AdviceHeading(title, content, compact = false) }
                     }
                 }
-                Text(reason, style = MaterialTheme.typography.bodyMedium)
+                if (isAlert && trigger != null) {
+                    val threshold = stringResource(R.string.advice_first_trigger, advice.thresholdPercent)
+                    val interval = periodLabel(trigger, timezoneId)
+                    val chance = probabilityLabel(requireNotNull(trigger.probabilityPercent))
+                    val summary = stringResource(
+                        R.string.advice_trigger_accessibility,
+                        advice.thresholdPercent, interval, chance, timezoneId
+                    )
+                    Column(
+                        modifier = Modifier.fillMaxWidth()
+                            .background(content.copy(alpha = 0.055f), RoundedCornerShape(16.dp))
+                            .testTag("umbrella_trigger")
+                            .clearAndSetSemantics { contentDescription = summary }
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(threshold, style = MaterialTheme.typography.bodySmall)
+                        Text(
+                            interval,
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.testTag("umbrella_trigger_interval")
+                        )
+                        Text(
+                            stringResource(R.string.advice_trigger_probability, chance),
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.testTag("umbrella_trigger_probability")
+                        )
+                    }
+                } else if (reason != null) {
+                    Text(reason, style = MaterialTheme.typography.bodyMedium)
+                }
             }
         }
     }

@@ -15,7 +15,8 @@ data class CurrentWeatherResponse(
     val time: Long? = null,
     @SerializedName("temperature_2m") val temperatureCelsius: Double? = null,
     @SerializedName("apparent_temperature") val apparentTemperatureCelsius: Double? = null,
-    @SerializedName("weather_code") val weatherCode: Int? = null
+    @SerializedName("weather_code") val weatherCode: Int? = null,
+    @SerializedName("is_day") val isDay: Int? = null
 )
 
 data class HourlyWeatherResponse(

@@ -11,7 +11,8 @@ enum class AdviceKind {
 data class UmbrellaAdvice(
     val kind: AdviceKind,
     val peakProbability: Double? = null,
-    val thresholdPercent: Int
+    val thresholdPercent: Int,
+    val firstTriggerPeriod: RainPeriod? = null
 )
 
 /**
@@ -36,9 +37,13 @@ fun calculateUmbrellaAdvice(
 
     val peak = probabilities.filterNotNull().maxOrNull()
         ?: return UmbrellaAdvice(AdviceKind.UNAVAILABLE, thresholdPercent = thresholdPercent)
+    val firstTriggerPeriod = periods
+        .filter { requireNotNull(it.probabilityPercent) >= thresholdPercent }
+        .minByOrNull { it.start }
     return UmbrellaAdvice(
         kind = if (peak >= thresholdPercent) AdviceKind.BRING_UMBRELLA else AdviceKind.BELOW_THRESHOLD,
         peakProbability = peak,
-        thresholdPercent = thresholdPercent
+        thresholdPercent = thresholdPercent,
+        firstTriggerPeriod = firstTriggerPeriod
     )
 }

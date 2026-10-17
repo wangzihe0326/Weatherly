@@ -8,6 +8,8 @@ A two-screen Android weather utility built with Kotlin, Jetpack Compose and Mate
 - Up to 24 hourly cards showing temperature, conditions and rain probability. Swipe horizontally, use Earlier/Later to move one hour, or select a card to see its complete interval and details.
 - Seven-day weather, low/high temperatures, temperature-range bars and Peak rain: the day's highest hourly precipitation probability.
 - Umbrella advice based on the current hour and next two, with selectable 30%, 60% or 80% thresholds. Browsing other hours or days does not change this rule.
+- When advice is triggered, the card identifies the first hour meeting your threshold and that hour's rain probability, in the city's time. This is a forecast interval, not a prediction of when rain will begin.
+- Current-condition artwork uses the provider's daylight flag: sun by day, moon by night, and a neutral illustration when daylight information is missing.
 - Celsius/Fahrenheit conversion across all forecasts and a reminder switch, without extra network requests.
 - Loading, refresh, retry, missing-data and stale-data states. A failed refresh retains labelled data for the same city; changing city clears the previous city's data.
 - Light/dark themes, scalable text and layouts that reflow on narrower screens or at larger font sizes.

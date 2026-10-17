@@ -79,8 +79,9 @@ fun WeatherSummaryCard(weather: WeatherSnapshot, temperatureUnit: TemperatureUni
                     // Decorative artwork yields space to the decision-making text as fonts grow.
                     if (showArtwork) {
                         WeatherArtwork(
-                            weather.weatherDescription,
-                            Modifier.size(96.dp).testTag("summary_artwork")
+                            weatherCode = weather.weatherCode,
+                            isDay = weather.isDay,
+                            modifier = Modifier.size(96.dp).testTag("summary_artwork")
                         )
                     }
                 }

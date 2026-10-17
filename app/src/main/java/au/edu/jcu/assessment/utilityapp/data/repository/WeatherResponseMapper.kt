@@ -32,7 +32,8 @@ fun mapWeatherResponse(
     val current = response.current
     val temperature = current?.temperatureCelsius?.takeIf { it.isFinite() }
     val apparentTemperature = current?.apparentTemperatureCelsius?.takeIf { it.isFinite() }
-    val description = weatherDescription(current?.weatherCode)
+    val code = current?.weatherCode.knownCodeOrNull()
+    val description = weatherDescription(code)
 
     val snapshot = WeatherSnapshot(
         city = city,
@@ -43,7 +44,9 @@ fun mapWeatherResponse(
         fetchedAt = fetchedAt,
         timezoneId = zone.id,
         forecastPeriods = mapHourlyPeriods(response.hourly),
-        dailyForecast = mapDailyForecast(response.daily, zone)
+        dailyForecast = mapDailyForecast(response.daily, zone),
+        weatherCode = code,
+        isDay = current?.isDay.daylightOrNull()
     )
     if (!snapshot.hasMeaningfulData()) throw EmptyWeatherException()
     return snapshot

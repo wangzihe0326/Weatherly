@@ -10,7 +10,7 @@ interface WeatherApi {
         @Query("latitude") latitude: Double,
         @Query("longitude") longitude: Double,
         @Query("current") current: String =
-            "temperature_2m,apparent_temperature,weather_code",
+            "temperature_2m,apparent_temperature,weather_code,is_day",
         @Query("hourly") hourly: String = "temperature_2m,weather_code,is_day,precipitation_probability",
         @Query("daily") daily: String =
             "weather_code,temperature_2m_min,temperature_2m_max,precipitation_probability_max",

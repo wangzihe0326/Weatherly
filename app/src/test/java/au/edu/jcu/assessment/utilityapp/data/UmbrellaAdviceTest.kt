@@ -9,11 +9,35 @@ import org.junit.Test
 class UmbrellaAdviceTest {
     @Test
     fun peakEqualToThresholdSuggestsBringingAnUmbrella() {
-        val advice = calculateUmbrellaAdvice(periods(12.0, 50.0, 20.0), 50, false)
+        val forecast = periods(12.0, 50.0, 20.0)
+        val advice = calculateUmbrellaAdvice(forecast, 50, false)
 
         assertEquals(AdviceKind.BRING_UMBRELLA, advice.kind)
         assertEquals(50.0, advice.peakProbability!!, 0.0)
         assertEquals(50, advice.thresholdPercent)
+        assertEquals(forecast[1], advice.firstTriggerPeriod)
+    }
+
+    @Test
+    fun firstTriggerKeepsItsOwnProbabilityWhenALaterHourHasThePeak() {
+        val forecast = periods(60.0, 90.0, 20.0)
+
+        val advice = calculateUmbrellaAdvice(forecast, 50, false)
+
+        assertEquals(AdviceKind.BRING_UMBRELLA, advice.kind)
+        assertEquals(forecast[0], advice.firstTriggerPeriod)
+        assertEquals(60.0, advice.firstTriggerPeriod!!.probabilityPercent!!, 0.0)
+        assertEquals(90.0, advice.peakProbability!!, 0.0)
+    }
+
+    @Test
+    fun triggerUsesTheEarliestQualifyingTimeEvenIfInputOrderDiffers() {
+        val forecast = periods(20.0, 60.0, 90.0)
+
+        val advice = calculateUmbrellaAdvice(listOf(forecast[2], forecast[0], forecast[1]), 50, false)
+
+        assertEquals(forecast[1], advice.firstTriggerPeriod)
+        assertEquals(90.0, advice.peakProbability!!, 0.0)
     }
 
     @Test
@@ -22,6 +46,7 @@ class UmbrellaAdviceTest {
 
         assertEquals(AdviceKind.BELOW_THRESHOLD, advice.kind)
         assertEquals(49.0, advice.peakProbability!!, 0.0)
+        assertNull(advice.firstTriggerPeriod)
     }
 
     @Test
@@ -38,29 +63,33 @@ class UmbrellaAdviceTest {
 
         assertEquals(AdviceKind.UNAVAILABLE, advice.kind)
         assertNull(advice.peakProbability)
+        assertNull(advice.firstTriggerPeriod)
     }
 
     @Test
     fun fewerThanThreePeriodsCannotBePresentedAsACompleteForecast() {
-        val advice = calculateUmbrellaAdvice(periods(20.0, 30.0), 50, false)
+        val advice = calculateUmbrellaAdvice(periods(90.0, 30.0), 50, false)
 
         assertEquals(AdviceKind.UNAVAILABLE, advice.kind)
         assertNull(advice.peakProbability)
+        assertNull(advice.firstTriggerPeriod)
     }
 
     @Test
     fun staleForecastNeverProducesCurrentAdvice() {
-        val advice = calculateUmbrellaAdvice(periods(10.0, 20.0, 30.0), 50, true)
+        val advice = calculateUmbrellaAdvice(periods(90.0, 20.0, 30.0), 50, true)
 
         assertEquals(AdviceKind.UNAVAILABLE, advice.kind)
         assertNull(advice.peakProbability)
+        assertNull(advice.firstTriggerPeriod)
     }
 
     @Test
     fun invalidNumericProbabilityCannotGiveFalseReassurance() {
         for (invalid in listOf(Double.NaN, Double.POSITIVE_INFINITY, -1.0, 101.0)) {
-            assertEquals(AdviceKind.UNAVAILABLE,
-                calculateUmbrellaAdvice(periods(10.0, invalid, 30.0), 50, false).kind)
+            val advice = calculateUmbrellaAdvice(periods(90.0, invalid, 30.0), 50, false)
+            assertEquals(AdviceKind.UNAVAILABLE, advice.kind)
+            assertNull(advice.firstTriggerPeriod)
         }
     }
 

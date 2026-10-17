@@ -26,7 +26,9 @@
     <string name="stale_title">This forecast needs an update</string>
     <string name="stale_body">Refresh before using it to plan your trip. Advice is unavailable until the data is current.</string>
     <string name="advice_bring">Consider taking an umbrella</string>
-    <string name="advice_bring_reason">Peak hourly rain chance: %1$s. Your reminder threshold: %2$d%%.</string>
+    <string name="advice_first_trigger">First hour at or above %1$d%%</string>
+    <string name="advice_trigger_probability">%1$s hourly rain chance · city time</string>
+    <string name="advice_trigger_accessibility">First hour at or above your %1$d%% threshold. %2$s. Hourly rain probability %3$s. Times shown in %4$s.</string>
     <string name="advice_below">Below your reminder threshold</string>
     <string name="advice_below_reason">Peak hourly rain chance: %1$s. Your threshold: %2$d%%. Rain is still possible.</string>
     <string name="advice_unavailable">Not enough current data for advice</string>

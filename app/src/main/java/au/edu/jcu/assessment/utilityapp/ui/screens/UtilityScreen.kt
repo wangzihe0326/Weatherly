@@ -127,7 +127,7 @@ fun UtilityScreen(state: UtilityUiState, onRefresh: () -> Unit) {
                 )
             }
             WeatherSummaryCard(weather = weather, temperatureUnit = state.settings.temperatureUnit)
-            if (state.settings.umbrellaEnabled) AdviceCard(state.advice)
+            if (state.settings.umbrellaEnabled) AdviceCard(state.advice, weather.timezoneId)
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
                     stringResource(R.string.fetched_at, modelTimeLabel(weather.fetchedAt, weather.timezoneId)),

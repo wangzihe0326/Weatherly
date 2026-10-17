@@ -27,7 +27,9 @@ data class WeatherColors(
     val sun: Color,
     val cloud: Color,
     val cloudShadow: Color,
-    val rain: Color
+    val rain: Color,
+    val moon: Color,
+    val moonShadow: Color
 )
 
 val LightWeatherColors = WeatherColors(
@@ -38,7 +40,9 @@ val LightWeatherColors = WeatherColors(
     sun = Color(0xFFFFD47B),
     cloud = Color(0xFFF6FBFF),
     cloudShadow = Color(0xFFB8D7E8),
-    rain = Color(0xFF9BD5F4)
+    rain = Color(0xFF9BD5F4),
+    moon = Color(0xFFF1F6FF),
+    moonShadow = Color(0xFFAAC9E6)
 )
 
 val DarkWeatherColors = LightWeatherColors.copy(
