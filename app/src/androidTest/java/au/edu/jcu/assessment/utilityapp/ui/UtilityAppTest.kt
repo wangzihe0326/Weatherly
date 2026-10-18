@@ -12,12 +12,14 @@ import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToIndex
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.unit.Density
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import au.edu.jcu.assessment.utilityapp.data.model.City
@@ -73,10 +75,12 @@ class UtilityAppTest {
     @Test
     fun disablingAdviceHidesItWhileKeepingWeather() {
         showApp()
+        scrollWeatherTo("umbrella_advice")
         compose.onNodeWithTag("umbrella_advice").performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("settings_tab").performClick()
         compose.onNodeWithTag("umbrella_toggle").performScrollTo().performClick()
         compose.onNodeWithTag("weather_tab").performClick()
+        scrollWeatherTo("current_temperature")
         compose.onNodeWithTag("current_temperature").assertTextEquals("25°C")
         compose.onNodeWithTag("umbrella_advice").assertDoesNotExist()
     }
@@ -98,6 +102,7 @@ class UtilityAppTest {
             }
         )
         showApp(UtilityUiState(weather = weather, now = now))
+        scrollWeatherTo("umbrella_advice")
         compose.onNodeWithText("Not enough current data for advice").performScrollTo().assertIsDisplayed()
         selectVisibleHour(1)
         assertOnlyRainPeriodSelected(1)
@@ -108,6 +113,7 @@ class UtilityAppTest {
             .assertTextEquals(periodLabel(weather.forecastPeriods[1], weather.timezoneId))
         compose.onNodeWithTag("rain_selected_probability", useUnmergedTree = true).performScrollTo()
             .assertTextEquals("Rain probability is unavailable for this hour.")
+        scrollWeatherTo("umbrella_advice")
         compose.onNodeWithText("Not enough current data for advice").performScrollTo().assertIsDisplayed()
         selectVisibleHour(2)
         compose.onNodeWithTag("rain_period_2").assertIsSelected()
@@ -119,6 +125,7 @@ class UtilityAppTest {
         val weather = sampleWeather()
         val originalState = UtilityUiState(weather = weather, now = now)
         showApp(originalState)
+        scrollWeatherTo("weather_hourly_section")
         assertOnlyRainPeriodSelected(0)
 
         selectVisibleHour(1)
@@ -136,6 +143,7 @@ class UtilityAppTest {
             .assertTextEquals("20% chance of rain during this hour.")
 
         // Inspecting a lower-probability hour must not replace the three-hour advice.
+        scrollWeatherTo("umbrella_advice")
         compose.onNodeWithText("Consider taking an umbrella").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("Below your reminder threshold").assertDoesNotExist()
         compose.runOnIdle {
@@ -221,6 +229,7 @@ class UtilityAppTest {
         compose.onNodeWithTag("threshold_80").performScrollTo().performClick().assertIsSelected()
         compose.onNodeWithTag("weather_tab").performClick()
         compose.onNodeWithTag("current_temperature").assertTextEquals("25°C")
+        scrollWeatherTo("umbrella_advice")
         compose.onNodeWithText("Below your reminder threshold").performScrollTo().assertIsDisplayed()
     }
 
@@ -240,6 +249,7 @@ class UtilityAppTest {
             )
         })
         showApp(UtilityUiState(weather = extended, now = now))
+        scrollWeatherTo("weather_hourly_section")
         compose.onNodeWithTag("hourly_previous").performScrollTo().assertIsNotEnabled()
         repeat(23) { compose.onNodeWithTag("hourly_next").performScrollTo().performClick() }
         compose.onNodeWithTag("rain_period_23").assertIsSelected()
@@ -250,8 +260,10 @@ class UtilityAppTest {
         compose.onNodeWithTag("hourly_next").performScrollTo().assertIsNotEnabled()
         compose.onNodeWithTag("hourly_previous").performClick()
         compose.onNodeWithTag("rain_period_22").assertIsSelected()
+        scrollWeatherTo("umbrella_advice")
         compose.onNodeWithText("Below your reminder threshold").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("Consider taking an umbrella").assertDoesNotExist()
+        scrollWeatherTo("weather_daily_section")
         compose.onNodeWithTag("daily_day_6").performScrollTo().assertIsDisplayed()
         compose.runOnIdle { assertEquals(0, refreshCount) }
     }
@@ -262,7 +274,9 @@ class UtilityAppTest {
         compose.onNodeWithTag("settings_tab").performClick()
         compose.onNodeWithTag("unit_FAHRENHEIT").performScrollTo().performClick()
         compose.onNodeWithTag("weather_tab").performClick()
+        scrollWeatherTo("weather_hourly_section")
         compose.onNodeWithTag("rain_selected_temperature", useUnmergedTree = true).performScrollTo().assertTextEquals("77°F")
+        scrollWeatherTo("weather_daily_section")
         compose.onNodeWithTag("daily_low_0", useUnmergedTree = true)
             .performScrollTo().assertTextEquals("68°F")
         compose.onNodeWithTag("daily_high_0", useUnmergedTree = true).assertTextEquals("86°F")
@@ -280,6 +294,7 @@ class UtilityAppTest {
             darkTheme = true,
             fontScale = 2f
         )
+        scrollWeatherTo("weather_daily_section")
         compose.onNodeWithTag("daily_low_0", useUnmergedTree = true)
             .performScrollTo().assertTextEquals("—")
         compose.onNodeWithTag("daily_high_0", useUnmergedTree = true).assertTextEquals("—")
@@ -287,8 +302,13 @@ class UtilityAppTest {
     }
 
     private fun selectVisibleHour(indexInPage: Int) {
+        scrollWeatherTo("weather_hourly_section")
         compose.onNodeWithTag("hourly_list").performScrollTo().performScrollToIndex(indexInPage)
         compose.onNodeWithTag("rain_period_$indexInPage").performScrollTo().performClick()
+    }
+
+    private fun scrollWeatherTo(tag: String) {
+        compose.onNodeWithTag("weather_screen").performScrollToNode(hasTestTag(tag))
     }
 
     private fun assertOnlyRainPeriodSelected(selectedIndex: Int) {

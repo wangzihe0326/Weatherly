@@ -11,10 +11,11 @@ A two-screen Android weather utility built with Kotlin, Jetpack Compose and Mate
 - When advice is triggered, the card identifies the first hour meeting your threshold and that hour's rain probability, in the city's time. This is a forecast interval, not a prediction of when rain will begin.
 - Current-condition artwork uses the provider's daylight flag: sun by day, moon by night, and a neutral illustration when daylight information is missing.
 - Celsius/Fahrenheit conversion across all forecasts and a reminder switch, without extra network requests.
+- While the app is in the foreground, data is checked each minute and refreshed when it reaches 30 minutes old. Failed requests retry after approximately 1, 2 and 5 minutes; after three automatic retries, use Try again. Backgrounding pauses automatic checks without resetting the retry budget.
 - Loading, refresh, retry, missing-data and stale-data states. A failed refresh retains labelled data for the same city; changing city clears the previous city's data.
 - Light/dark themes, scalable text and layouts that reflow on narrower screens or at larger font sizes.
 - A compact overview places current conditions and near-term umbrella advice first. Larger text removes decorative artwork to leave more room for the forecast.
-- Returning from Settings keeps the selected forecast hour and both vertical and horizontal browsing positions. Weather browsing is separate for each city; an expired selected hour falls back to the first available interval.
+- Returning from Settings, refreshing and recovering from a failed request keep the selected forecast hour and both vertical and horizontal browsing positions. Weather browsing is separate for each city; an expired selected hour falls back to the first available interval.
 
 Settings are session-only and may reset when the process restarts. Cities are predefined; location permission is not required. Current conditions come from a weather model rather than a local sensor.
 
@@ -33,7 +34,7 @@ MainActivity / UtilityApp
 
 `UtilityApplication` owns an `AppContainer`, which constructs the HTTP client and repository once. `UtilityViewModelFactory` injects the repository into an Activity-scoped ViewModel. Weather data and settings are shared through `StateFlow`; screen composables receive state and callbacks, collected using `collectAsStateWithLifecycle()`.
 
-The ViewModel cancels obsolete requests and rejects late results using a request version. A foreground lifecycle callback refreshes stale data; a foreground-only clock keeps displayed periods and city-local dates current. Response mapping and umbrella rules are separate from Compose. The hourly interface uses a `LazyRow` with selection keyed by interval start time.
+The ViewModel cancels obsolete requests and rejects late results using a request version. A lifecycle-bound foreground ticker keeps displayed periods and city-local dates current, refreshes expired data and evaluates bounded retry deadlines. A successful but incomplete response receives a 30-minute cooldown to avoid repeated requests. In-flight requests may finish in the background, but no new automatic requests start there. Response mapping and umbrella rules are separate from Compose. The weather screen uses a `LazyColumn` with stable section keys, so changes to status cards above the visible section preserve its position. The hourly `LazyRow` keeps selection and its first visible timestamp separately; its browsing state remains composed when the section scrolls off screen.
 
 `SaveableStateHolder` retains each city's weather browsing state and the Settings scroll position across tab changes and Activity recreation. A separate empty/loading page and keyed layout subtree prevent a pending city request from consuming a previously saved scroll position. Settings and fetched weather remain session-only ViewModel state.
 

@@ -20,6 +20,12 @@
     <string name="error_title">Weather could not be loaded</string>
     <string name="refresh_error_title">Could not refresh</string>
     <string name="refresh_error_body">The last successful forecast is still shown below.</string>
+    <string name="refresh_keep_browsing">You can keep browsing while the forecast updates.</string>
+    <string name="refresh_retry_scheduled">Next automatic retry in about %1$d min while the app is open. You can also try again now.</string>
+    <string name="refresh_retries_paused">Automatic retries are paused after three retries. Check your connection, then try again.</string>
+    <string name="refresh_old_forecast">The last forecast is shown for reference. It is out of date, so umbrella advice is unavailable.</string>
+    <string name="refresh_failure_notice">Could not refresh. Your last forecast is still available.</string>
+    <string name="refresh_recovered_notice">Forecast updated. Your browsing position is saved.</string>
     <string name="retry">Try again</string>
     <string name="empty_title">No weather to show yet</string>
     <string name="empty_body">Refresh to request a forecast for %1$s.</string>

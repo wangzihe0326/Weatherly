@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -22,12 +21,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -57,21 +51,14 @@ import kotlinx.coroutines.launch
 fun RainForecastCard(
     periods: List<RainPeriod>,
     timezoneId: String,
-    temperatureUnit: TemperatureUnit = TemperatureUnit.CELSIUS
+    temperatureUnit: TemperatureUnit = TemperatureUnit.CELSIUS,
+    browsingState: HourlyBrowsingState = rememberHourlyBrowsingState(periods, timezoneId)
 ) {
     // A timestamp follows the same hour when refreshing advances the window.
-    var selectedStart by rememberSaveable(timezoneId) { mutableStateOf<Long?>(null) }
-    val selectedIndex = periods.indexOfFirst { it.start.epochSecond == selectedStart }.coerceAtLeast(0)
+    val selectedIndex = periods.indexOfFirst { it.start.epochSecond == browsingState.selectedStart }.coerceAtLeast(0)
     val selectedPeriod = periods.getOrNull(selectedIndex)
-    val listState = rememberLazyListState()
+    val listState = browsingState.listState
     val scope = rememberCoroutineScope()
-    LaunchedEffect(periods.map { it.start.epochSecond }) {
-        // Restore browsing independently of selection. Only an expired choice returns to the current hour.
-        if (selectedStart != null && periods.none { it.start.epochSecond == selectedStart }) {
-            selectedStart = periods.firstOrNull()?.start?.epochSecond
-            listState.scrollToItem(0)
-        }
-    }
 
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -111,7 +98,7 @@ fun RainForecastCard(
                         temperatureUnit = temperatureUnit,
                         index = index,
                         selected = index == selectedIndex,
-                        onSelect = { selectedStart = period.start.epochSecond },
+                        onSelect = { browsingState.selectedStart = period.start.epochSecond },
                         modifier = Modifier.width(tileWidth)
                     )
                 }
@@ -123,12 +110,12 @@ fun RainForecastCard(
                 canGoForward = selectedIndex < periods.lastIndex,
                 onPrevious = {
                     val index = selectedIndex - 1
-                    selectedStart = periods[index].start.epochSecond
+                    browsingState.selectedStart = periods[index].start.epochSecond
                     scope.launch { listState.scrollToItem(index) }
                 },
                 onNext = {
                     val index = selectedIndex + 1
-                    selectedStart = periods[index].start.epochSecond
+                    browsingState.selectedStart = periods[index].start.epochSecond
                     scope.launch { listState.scrollToItem(index) }
                 }
             )

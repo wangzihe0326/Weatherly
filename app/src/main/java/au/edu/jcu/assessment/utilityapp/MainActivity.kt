@@ -28,9 +28,13 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.onForeground()
-                while (isActive) {
-                    delay(60_000)
-                    viewModel.updateTime()
+                try {
+                    while (isActive) {
+                        delay(60_000)
+                        viewModel.onForegroundTick()
+                    }
+                } finally {
+                    viewModel.onBackground()
                 }
             }
         }

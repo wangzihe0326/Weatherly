@@ -156,7 +156,7 @@ class UtilityViewModelTest {
         assertNull(vm.uiState.value.errorMessage)
     }
 
-    @Test fun dailyOnlyTemperatureIsAcceptedAndNearTermCoverageStillControlsForegroundRefresh() = runTest {
+    @Test fun dailyOnlyTemperatureIsAcceptedWithoutRepeatedRequestsUntilThirtyMinutes() = runTest {
         val vm = UtilityViewModel(repository, clock)
         runCurrent()
         val partial = WeatherSnapshot(
@@ -170,6 +170,14 @@ class UtilityViewModelTest {
         assertNull(vm.uiState.value.errorMessage)
         assertFalse(vm.uiState.value.isLoading)
         vm.onForeground()
+        runCurrent()
+        assertEquals(1, repository.requests.size)
+        clock.value = clock.value.plusSeconds(1799)
+        vm.onForegroundTick()
+        runCurrent()
+        assertEquals(1, repository.requests.size)
+        clock.value = clock.value.plusSeconds(1)
+        vm.onForegroundTick()
         runCurrent()
         assertEquals(2, repository.requests.size)
         repository.succeed(1, partial)
@@ -229,6 +237,219 @@ class UtilityViewModelTest {
         assertEquals(original, vm.uiState.value.weather)
         assertEquals("No usable weather data was returned for this city. Please try again.", vm.uiState.value.errorMessage)
         assertFalse(vm.uiState.value.isLoading)
+    }
+
+    @Test fun continuousForegroundRefreshesAtExpiryWithoutOverlappingAnActiveRequest() = runTest {
+        val vm = UtilityViewModel(repository, clock)
+        vm.onForeground()
+        runCurrent()
+        repository.succeed(0, snapshot(City.SINGAPORE))
+        runCurrent()
+
+        clock.value = clock.value.plusSeconds(1799)
+        vm.onForegroundTick()
+        runCurrent()
+        assertEquals(1, repository.requests.size)
+        clock.value = clock.value.plusSeconds(1)
+        vm.onForegroundTick()
+        runCurrent()
+        assertEquals(2, repository.requests.size)
+        assertTrue(vm.uiState.value.isLoading)
+
+        clock.value = clock.value.plusSeconds(1800)
+        vm.onForegroundTick()
+        vm.onForeground()
+        vm.refresh()
+        runCurrent()
+        assertEquals(2, repository.requests.size)
+        repository.succeed(1, snapshot(City.SINGAPORE))
+        runCurrent()
+    }
+
+    @Test fun backgroundTicksDoNotRefreshAndResumingRefreshesAnExpiredForecastOnce() = runTest {
+        val vm = UtilityViewModel(repository, clock)
+        vm.onForeground()
+        runCurrent()
+        repository.succeed(0, snapshot(City.SINGAPORE))
+        runCurrent()
+        vm.onBackground()
+
+        clock.value = clock.value.plusSeconds(3600)
+        vm.onForegroundTick()
+        runCurrent()
+        assertEquals(1, repository.requests.size)
+        vm.onForeground()
+        vm.onForeground()
+        runCurrent()
+        assertEquals(2, repository.requests.size)
+        repository.succeed(1, snapshot(City.SINGAPORE))
+        runCurrent()
+    }
+
+    @Test fun automaticRecoveryUsesOneTwoFiveMinuteBackoffThenStopsAcrossResumes() = runTest {
+        val vm = UtilityViewModel(repository, clock)
+        vm.onForeground()
+        runCurrent()
+        repository.fail(0)
+        runCurrent()
+
+        for ((index, waitSeconds) in listOf(60L, 120L, 300L).withIndex()) {
+            assertEquals(clock.instant().plusSeconds(waitSeconds), vm.uiState.value.nextRetryAt)
+            assertFalse(vm.uiState.value.automaticRetriesExhausted)
+            clock.value = clock.value.plusSeconds(waitSeconds - 1)
+            repeat(3) {
+                vm.onBackground()
+                vm.onForeground()
+            }
+            runCurrent()
+            assertEquals(index + 1, repository.requests.size)
+            clock.value = clock.value.plusSeconds(1)
+            vm.onForegroundTick()
+            runCurrent()
+            assertEquals(index + 2, repository.requests.size)
+            assertNull(vm.uiState.value.nextRetryAt)
+            repository.fail(index + 1)
+            runCurrent()
+        }
+
+        assertTrue(vm.uiState.value.automaticRetriesExhausted)
+        assertNull(vm.uiState.value.nextRetryAt)
+        clock.value = clock.value.plusSeconds(3600)
+        vm.onForegroundTick()
+        vm.onBackground()
+        vm.onForeground()
+        runCurrent()
+        assertEquals(4, repository.requests.size)
+
+        vm.refresh()
+        runCurrent()
+        assertFalse(vm.uiState.value.automaticRetriesExhausted)
+        repository.fail(4)
+        runCurrent()
+        assertEquals(clock.instant().plusSeconds(60), vm.uiState.value.nextRetryAt)
+    }
+
+    @Test fun failureCompletingInBackgroundWaitsForForegroundAndDoesNotCatchUpMultipleRetries() = runTest {
+        val vm = UtilityViewModel(repository, clock)
+        vm.onForeground()
+        runCurrent()
+        vm.onBackground()
+        repository.fail(0)
+        runCurrent()
+
+        clock.value = clock.value.plusSeconds(3600)
+        vm.onForegroundTick()
+        runCurrent()
+        assertEquals(1, repository.requests.size)
+        vm.onForeground()
+        runCurrent()
+        assertEquals(2, repository.requests.size)
+        repository.fail(1)
+        runCurrent()
+        assertEquals(clock.instant().plusSeconds(120), vm.uiState.value.nextRetryAt)
+    }
+
+    @Test fun automaticSuccessKeepsOldWeatherUntilReplacementAndResetsRecoveryBudget() = runTest {
+        val vm = UtilityViewModel(repository, clock)
+        vm.onForeground()
+        runCurrent()
+        val original = snapshot(City.SINGAPORE)
+        repository.succeed(0, original)
+        runCurrent()
+        clock.value = clock.value.plusSeconds(1800)
+        vm.onForegroundTick()
+        runCurrent()
+        repository.fail(1)
+        runCurrent()
+        assertEquals(original, vm.uiState.value.weather)
+
+        clock.value = clock.value.plusSeconds(60)
+        vm.onForegroundTick()
+        runCurrent()
+        assertEquals(original, vm.uiState.value.weather)
+        val replacement = snapshot(City.SINGAPORE).copy(temperatureCelsius = 29.0)
+        repository.succeed(2, replacement)
+        runCurrent()
+        assertEquals(replacement, vm.uiState.value.weather)
+        assertNull(vm.uiState.value.errorMessage)
+        assertNull(vm.uiState.value.nextRetryAt)
+        assertFalse(vm.uiState.value.automaticRetriesExhausted)
+
+        clock.value = clock.value.plusSeconds(1800)
+        vm.onForegroundTick()
+        runCurrent()
+        repository.fail(3)
+        runCurrent()
+        assertEquals(clock.instant().plusSeconds(60), vm.uiState.value.nextRetryAt)
+    }
+
+    @Test fun changingCityDuringAutomaticRecoveryRejectsLateFailureAndStartsWithFreshBudget() = runTest {
+        val vm = UtilityViewModel(repository, clock)
+        vm.onForeground()
+        runCurrent()
+        repository.fail(0)
+        runCurrent()
+        clock.value = clock.value.plusSeconds(60)
+        vm.onForegroundTick()
+        runCurrent()
+        vm.selectCity(City.CAIRNS)
+        runCurrent()
+        repository.fail(1)
+        runCurrent()
+        assertTrue(vm.uiState.value.isLoading)
+        assertNull(vm.uiState.value.errorMessage)
+        assertNull(vm.uiState.value.nextRetryAt)
+
+        repository.fail(2)
+        runCurrent()
+        assertEquals(City.CAIRNS, vm.uiState.value.settings.city)
+        assertEquals(clock.instant().plusSeconds(60), vm.uiState.value.nextRetryAt)
+    }
+
+    @Test fun backwardClockCorrectionKeepsRemainingRetryDelayInsteadOfStalling() = runTest {
+        val vm = UtilityViewModel(repository, clock)
+        vm.onForeground()
+        runCurrent()
+        repository.fail(0)
+        runCurrent()
+        clock.value = clock.value.minusSeconds(3600)
+        vm.onForegroundTick()
+        runCurrent()
+        assertEquals(clock.instant().plusSeconds(60), vm.uiState.value.nextRetryAt)
+        assertEquals(1, repository.requests.size)
+        clock.value = clock.value.plusSeconds(59)
+        vm.onForegroundTick()
+        runCurrent()
+        assertEquals(1, repository.requests.size)
+        clock.value = clock.value.plusSeconds(1)
+        vm.onForegroundTick()
+        runCurrent()
+        assertEquals(2, repository.requests.size)
+        repository.succeed(1, snapshot(City.SINGAPORE))
+        runCurrent()
+    }
+
+    @Test fun backwardClockCorrectionAlsoPreservesTheSuccessfulResponseCooldown() = runTest {
+        val vm = UtilityViewModel(repository, clock)
+        vm.onForeground()
+        runCurrent()
+        repository.succeed(0, snapshot(City.SINGAPORE))
+        runCurrent()
+        clock.value = clock.value.minusSeconds(3600)
+        vm.onForegroundTick()
+        runCurrent()
+        assertTrue(vm.uiState.value.isStale)
+        assertEquals(1, repository.requests.size)
+        clock.value = clock.value.plusSeconds(1799)
+        vm.onForegroundTick()
+        runCurrent()
+        assertEquals(1, repository.requests.size)
+        clock.value = clock.value.plusSeconds(1)
+        vm.onForegroundTick()
+        runCurrent()
+        assertEquals(2, repository.requests.size)
+        repository.succeed(1, snapshot(City.SINGAPORE))
+        runCurrent()
     }
 
     private fun snapshot(city: City) = WeatherSnapshot(

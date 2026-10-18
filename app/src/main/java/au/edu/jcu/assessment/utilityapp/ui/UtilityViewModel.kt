@@ -16,6 +16,8 @@ import kotlinx.coroutines.launch
 import retrofit2.HttpException
 import java.io.IOException
 import java.time.Clock
+import java.time.Duration
+import java.time.Instant
 
 class UtilityViewModel(
     private val repository: WeatherRepository,
@@ -25,16 +27,30 @@ class UtilityViewModel(
     val uiState = mutableState.asStateFlow()
     private var request: Job? = null
     private var requestVersion = 0L
+    private var isForeground = false
+    private var automaticRetriesStarted = 0
+    private var nextAutomaticRefreshAt: Instant? = null
 
     init {
         refresh()
     }
 
     fun refresh() {
+        if (mutableState.value.isLoading) return
+        automaticRetriesStarted = 0
+        startRequest()
+    }
+
+    private fun startRequest() {
         val version = ++requestVersion
         val city = mutableState.value.settings.city
         request?.cancel()
-        mutableState.update { it.copy(isLoading = true, errorMessage = null, now = clock.instant()) }
+        mutableState.update {
+            it.copy(
+                isLoading = true, errorMessage = null, nextRetryAt = null,
+                automaticRetriesExhausted = false, now = clock.instant()
+            )
+        }
         request = viewModelScope.launch {
             try {
                 val weather = repository.fetchWeather(city)
@@ -42,16 +58,29 @@ class UtilityViewModel(
                 if (!weather.hasMeaningfulData()) throw EmptyWeatherException()
                 // Cancellation is cooperative; also reject late, uncancellable results.
                 if (version == requestVersion) {
+                    val receivedAt = clock.instant()
+                    automaticRetriesStarted = 0
+                    // A useful but incomplete response must not trigger a request every minute.
+                    nextAutomaticRefreshAt = receivedAt.plus(AUTOMATIC_REFRESH_INTERVAL)
                     mutableState.update {
-                        it.copy(weather = weather, isLoading = false, errorMessage = null, now = clock.instant())
+                        it.copy(
+                            weather = weather, isLoading = false, errorMessage = null,
+                            nextRetryAt = null, automaticRetriesExhausted = false, now = receivedAt
+                        )
                     }
                 }
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (failure: Exception) {
                 if (version == requestVersion) {
+                    val failedAt = clock.instant()
+                    val nextRetry = RETRY_DELAYS.getOrNull(automaticRetriesStarted)?.let(failedAt::plus)
                     mutableState.update {
-                        it.copy(isLoading = false, errorMessage = messageFor(failure), now = clock.instant())
+                        it.copy(
+                            isLoading = false, errorMessage = messageFor(failure),
+                            nextRetryAt = nextRetry, automaticRetriesExhausted = nextRetry == null,
+                            now = failedAt
+                        )
                     }
                 }
             }
@@ -63,7 +92,10 @@ class UtilityViewModel(
         mutableState.update {
             it.copy(settings = it.settings.copy(city = city), weather = null, errorMessage = null)
         }
-        refresh()
+        automaticRetriesStarted = 0
+        nextAutomaticRefreshAt = null
+        // A city change supersedes even a request that is already in flight.
+        startRequest()
     }
 
     fun setTemperatureUnit(unit: TemperatureUnit) {
@@ -80,15 +112,56 @@ class UtilityViewModel(
     }
 
     fun updateTime() {
-        mutableState.update { it.copy(now = clock.instant()) }
+        val now = clock.instant()
+        val previous = mutableState.value.now
+        val clockMovedBackBy = Duration.between(now, previous).takeIf { !it.isNegative }
+        if (clockMovedBackBy != null) {
+            // Preserve the remaining wait if the device clock is corrected backwards.
+            nextAutomaticRefreshAt = nextAutomaticRefreshAt?.minus(clockMovedBackBy)
+        }
+        mutableState.update {
+            it.copy(
+                now = now,
+                nextRetryAt = if (clockMovedBackBy == null) it.nextRetryAt
+                    else it.nextRetryAt?.minus(clockMovedBackBy)
+            )
+        }
     }
 
     fun onForeground() {
+        isForeground = true
+        onForegroundTick()
+    }
+
+    fun onBackground() {
+        isForeground = false
+    }
+
+    fun onForegroundTick() {
+        if (!isForeground) return
         updateTime()
         val state = mutableState.value
-        if (!state.isLoading && (state.weather == null || state.isStale || state.displayedPeriods.size < 3)) {
-            refresh()
+        if (state.isLoading) return
+
+        // Re-entering the foreground preserves both the backoff and its retry limit.
+        if (state.errorMessage != null) {
+            val retryAt = state.nextRetryAt ?: return
+            if (state.now >= retryAt) {
+                automaticRetriesStarted++
+                startRequest()
+            }
+            return
         }
+
+        if (nextAutomaticRefreshAt?.let { state.now < it } == true) return
+        if (state.weather == null || state.isStale || state.displayedPeriods.size < 3) {
+            startRequest()
+        }
+    }
+
+    private companion object {
+        val AUTOMATIC_REFRESH_INTERVAL: Duration = Duration.ofMinutes(30)
+        val RETRY_DELAYS: List<Duration> = listOf(1L, 2L, 5L).map(Duration::ofMinutes)
     }
 
     private fun messageFor(failure: Exception): String = when (failure) {

@@ -14,6 +14,8 @@ data class UtilityUiState(
     val weather: WeatherSnapshot? = null,
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
+    val nextRetryAt: Instant? = null,
+    val automaticRetriesExhausted: Boolean = false,
     val now: Instant = Instant.now()
 ) {
     val isStale: Boolean

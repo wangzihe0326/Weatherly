@@ -6,12 +6,14 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToIndex
+import androidx.compose.ui.test.performScrollToNode
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import au.edu.jcu.assessment.utilityapp.data.model.City
 import au.edu.jcu.assessment.utilityapp.data.model.DailyForecast
@@ -99,6 +101,7 @@ class UtilityNavigationStateTest {
 
         compose.onNodeWithTag("current_temperature").assertIsDisplayed()
         assertEquals(0f, verticalScroll("weather_screen"), 1f)
+        compose.onNodeWithTag("weather_screen").performScrollToNode(hasTestTag("weather_hourly_section"))
         assertEquals(0f, horizontalScroll(), 0.001f)
         compose.onNodeWithTag("rain_period_0").assertIsSelected()
         compose.onNodeWithTag("rain_selected_period", useUnmergedTree = true)
@@ -167,6 +170,7 @@ class UtilityNavigationStateTest {
     }
 
     private fun chooseHour(index: Int) {
+        compose.onNodeWithTag("weather_screen").performScrollToNode(hasTestTag("weather_hourly_section"))
         compose.onNodeWithTag("hourly_list").performScrollTo().performScrollToIndex(index)
         compose.onNodeWithTag("rain_period_$index").performScrollTo().performClick().assertIsSelected()
     }

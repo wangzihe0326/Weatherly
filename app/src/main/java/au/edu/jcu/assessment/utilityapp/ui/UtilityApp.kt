@@ -14,9 +14,14 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
@@ -47,10 +52,28 @@ fun UtilityApp(
 ) {
     var settingsSelected by rememberSaveable { mutableStateOf(false) }
     val screenStateHolder = rememberSaveableStateHolder()
+    val snackbarHost = remember { SnackbarHostState() }
+    var refreshFailed by remember(state.settings.city) { mutableStateOf(false) }
+    val failureNotice = stringResource(R.string.refresh_failure_notice)
+    val recoveredNotice = stringResource(R.string.refresh_recovered_notice)
+    val retryLabel = stringResource(R.string.retry)
+    // Feedback remains available even when the inline status is outside the visible lazy list.
+    LaunchedEffect(state.errorMessage, state.isLoading, state.settings.city) {
+        if (state.weather != null && state.errorMessage != null && !state.isLoading) {
+            refreshFailed = true
+            if (snackbarHost.showSnackbar(failureNotice, retryLabel, withDismissAction = true) == SnackbarResult.ActionPerformed) {
+                onRefresh()
+            }
+        } else if (state.weather != null && !state.isLoading && refreshFailed) {
+            refreshFailed = false
+            snackbarHost.showSnackbar(recoveredNotice)
+        }
+    }
     BackHandler(enabled = settingsSelected) { settingsSelected = false }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
+        snackbarHost = { SnackbarHost(snackbarHost) },
         bottomBar = {
             Box(Modifier.navigationBarsPadding().padding(horizontal = 20.dp, vertical = 8.dp)) {
                 Surface(
