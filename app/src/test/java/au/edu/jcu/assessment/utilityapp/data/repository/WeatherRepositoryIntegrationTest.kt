@@ -1,6 +1,7 @@
 package au.edu.jcu.assessment.utilityapp.data.repository
 
 import au.edu.jcu.assessment.utilityapp.data.model.City
+import au.edu.jcu.assessment.utilityapp.data.model.WeatherCondition
 import au.edu.jcu.assessment.utilityapp.data.remote.WeatherApi
 import java.net.InetAddress
 import java.time.Clock
@@ -71,7 +72,7 @@ class WeatherRepositoryIntegrationTest {
         assertEquals(City.TOWNSVILLE, snapshot.city)
         assertEquals(28.4, snapshot.temperatureCelsius!!, 0.0)
         assertEquals(33.7, snapshot.apparentTemperatureCelsius!!, 0.0)
-        assertEquals("Slight rain showers", snapshot.weatherDescription)
+        assertEquals(WeatherCondition.SLIGHT_RAIN_SHOWERS, snapshot.condition)
         assertEquals(80, snapshot.weatherCode)
         assertEquals(true, snapshot.isDay)
         assertEquals(Instant.parse("2025-01-01T00:00:00Z"), snapshot.observationTime)
@@ -156,7 +157,7 @@ class WeatherRepositoryIntegrationTest {
         assertEquals(20.0, snapshot.dailyForecast.first().temperatureMinCelsius!!, 0.0)
         assertEquals(36.0, snapshot.dailyForecast.last().temperatureMaxCelsius!!, 0.0)
         assertEquals(70.0, snapshot.dailyForecast.last().maxPrecipitationProbability!!, 0.0)
-        assertEquals("Fog", snapshot.dailyForecast.last().weatherDescription)
+        assertEquals(WeatherCondition.FOG, snapshot.dailyForecast.last().condition)
     }
 
     private companion object {

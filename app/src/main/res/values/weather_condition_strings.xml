@@ -1,0 +1,32 @@
+<resources>
+    <string name="weather_condition_unavailable">Weather unavailable</string>
+    <string name="weather_condition_clear_sky">Clear sky</string>
+    <string name="weather_condition_mainly_clear">Mainly clear</string>
+    <string name="weather_condition_partly_cloudy">Partly cloudy</string>
+    <string name="weather_condition_overcast">Overcast</string>
+    <string name="weather_condition_fog">Fog</string>
+    <string name="weather_condition_depositing_rime_fog">Depositing rime fog</string>
+    <string name="weather_condition_light_drizzle">Light drizzle</string>
+    <string name="weather_condition_moderate_drizzle">Moderate drizzle</string>
+    <string name="weather_condition_dense_drizzle">Dense drizzle</string>
+    <string name="weather_condition_light_freezing_drizzle">Light freezing drizzle</string>
+    <string name="weather_condition_dense_freezing_drizzle">Dense freezing drizzle</string>
+    <string name="weather_condition_slight_rain">Slight rain</string>
+    <string name="weather_condition_moderate_rain">Moderate rain</string>
+    <string name="weather_condition_heavy_rain">Heavy rain</string>
+    <string name="weather_condition_light_freezing_rain">Light freezing rain</string>
+    <string name="weather_condition_heavy_freezing_rain">Heavy freezing rain</string>
+    <string name="weather_condition_slight_snowfall">Slight snowfall</string>
+    <string name="weather_condition_moderate_snowfall">Moderate snowfall</string>
+    <string name="weather_condition_heavy_snowfall">Heavy snowfall</string>
+    <string name="weather_condition_snow_grains">Snow grains</string>
+    <string name="weather_condition_slight_rain_showers">Slight rain showers</string>
+    <string name="weather_condition_moderate_rain_showers">Moderate rain showers</string>
+    <string name="weather_condition_violent_rain_showers">Violent rain showers</string>
+    <string name="weather_condition_slight_snow_showers">Slight snow showers</string>
+    <string name="weather_condition_heavy_snow_showers">Heavy snow showers</string>
+    <string name="weather_condition_thunderstorm">Thunderstorm</string>
+    <string name="weather_condition_thunderstorm_with_slight_hail">Thunderstorm with slight hail</string>
+    <string name="weather_condition_heavy_thunderstorm">Heavy thunderstorm</string>
+    <string name="weather_condition_thunderstorm_with_heavy_hail">Thunderstorm with heavy hail</string>
+</resources>

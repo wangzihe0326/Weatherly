@@ -10,16 +10,16 @@ import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextEquals
-import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToIndex
-import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.performScrollToKey
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import au.edu.jcu.assessment.utilityapp.data.model.City
 import au.edu.jcu.assessment.utilityapp.data.model.DailyForecast
+import au.edu.jcu.assessment.utilityapp.data.model.WeatherCondition
 import au.edu.jcu.assessment.utilityapp.data.model.RainPeriod
 import au.edu.jcu.assessment.utilityapp.data.model.WeatherSnapshot
 import au.edu.jcu.assessment.utilityapp.ui.components.periodLabel
@@ -54,14 +54,14 @@ class RefreshBrowsingStateTest {
         compose.runOnIdle {
             state.value = state.value.copy(
                 isLoading = false,
-                errorMessage = "Connection unavailable. Please try again.",
+                error = WeatherLoadError.NETWORK,
                 nextRetryAt = now.plusSeconds(60)
             )
         }
         assertBrowsingUnchanged(rowBefore, visibleHourBefore, visibleIndex = 17, selectedIndex = 19, selected)
 
         compose.runOnIdle {
-            state.value = state.value.copy(isLoading = true, errorMessage = null, nextRetryAt = null)
+            state.value = state.value.copy(isLoading = true, error = null, nextRetryAt = null)
         }
         assertBrowsingUnchanged(rowBefore, visibleHourBefore, visibleIndex = 17, selectedIndex = 19, selected)
 
@@ -78,7 +78,7 @@ class RefreshBrowsingStateTest {
         chooseHourAndBrowseElsewhere()
         val visibleHourLeft = bounds("rain_period_17").left
         val selected = state.value.hourlyPeriods[19]
-        showSection("weather_daily_section")
+        showSection("daily")
         compose.onNodeWithTag("daily_day_6").performScrollTo().assertIsDisplayed()
         val dayBefore = bounds("daily_day_6")
 
@@ -87,7 +87,7 @@ class RefreshBrowsingStateTest {
         deliverNextHourForecast()
         assertBoundsEqual(dayBefore, bounds("daily_day_6"))
 
-        showSection("weather_hourly_section")
+        showSection("hourly")
         compose.onNodeWithTag("hourly_list").performScrollTo()
         compose.onNodeWithTag("rain_period_18").assertIsSelected()
         compose.onNodeWithTag("rain_selected_period", useUnmergedTree = true)
@@ -98,7 +98,7 @@ class RefreshBrowsingStateTest {
     @Test
     fun expiredSelectionSafelyReturnsToTheCurrentHourWithoutMovingThePage() {
         showApp()
-        showSection("weather_hourly_section")
+        showSection("hourly")
         compose.onNodeWithTag("hourly_list").performScrollTo().performScrollToIndex(1)
         compose.onNodeWithTag("rain_period_1").performClick().assertIsSelected()
         compose.onNodeWithTag("hourly_list").performScrollToIndex(17)
@@ -126,7 +126,7 @@ class RefreshBrowsingStateTest {
         compose.runOnIdle {
             state.value = state.value.copy(
                 isLoading = false,
-                errorMessage = "Connection unavailable. Please try again.",
+                error = WeatherLoadError.NETWORK,
                 nextRetryAt = now.plusSeconds(60)
             )
         }
@@ -141,7 +141,7 @@ class RefreshBrowsingStateTest {
     }
 
     private fun chooseHourAndBrowseElsewhere() {
-        showSection("weather_hourly_section")
+        showSection("hourly")
         compose.onNodeWithTag("hourly_list").performScrollTo().performScrollToIndex(19)
         compose.onNodeWithTag("rain_period_19").performClick().assertIsSelected()
         // A visible-hour anchor must be separate from the selected-hour timestamp.
@@ -154,7 +154,7 @@ class RefreshBrowsingStateTest {
             val later = now.plusSeconds(3600)
             state.value = state.value.copy(
                 isLoading = false,
-                errorMessage = null,
+                error = null,
                 nextRetryAt = null,
                 now = later,
                 weather = state.value.weather!!.copy(
@@ -191,8 +191,8 @@ class RefreshBrowsingStateTest {
 
     private fun bounds(tag: String): Rect = compose.onNodeWithTag(tag).fetchSemanticsNode().boundsInRoot
 
-    private fun showSection(tag: String) {
-        compose.onNodeWithTag("weather_screen").performScrollToNode(hasTestTag(tag))
+    private fun showSection(key: String) {
+        compose.onNodeWithTag("weather_screen").performScrollToKey(key)
     }
 
     private fun showApp(initial: UtilityUiState = UtilityUiState(weather = weather(), now = now)) {
@@ -217,7 +217,7 @@ class RefreshBrowsingStateTest {
             city = City.SINGAPORE,
             temperatureCelsius = 25.0,
             apparentTemperatureCelsius = 30.0,
-            weatherDescription = "Cloudy",
+            condition = WeatherCondition.OVERCAST,
             observationTime = now,
             fetchedAt = now,
             timezoneId = "Asia/Singapore",
@@ -227,8 +227,7 @@ class RefreshBrowsingStateTest {
                     end = start.plusSeconds((index + 1) * 3600L),
                     probabilityPercent = 70.0,
                     temperatureCelsius = 25.0,
-                    weatherCode = 3,
-                    weatherDescription = "Overcast",
+                    condition = WeatherCondition.OVERCAST,
                     isDay = true
                 )
             },
@@ -237,8 +236,7 @@ class RefreshBrowsingStateTest {
                     date = LocalDate.of(2026, 10, 18).plusDays(index.toLong()),
                     temperatureMinCelsius = 20.0,
                     temperatureMaxCelsius = 30.0,
-                    weatherCode = 2,
-                    weatherDescription = "Partly cloudy",
+                    condition = WeatherCondition.PARTLY_CLOUDY,
                     maxPrecipitationProbability = 30.0
                 )
             }

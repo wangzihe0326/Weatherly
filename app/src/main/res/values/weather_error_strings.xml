@@ -1,0 +1,8 @@
+<resources>
+    <string name="weather_error_network">Could not reach the weather service. Check your connection and try again.</string>
+    <string name="weather_error_service_busy">The weather service is busy. Please wait a moment and try again.</string>
+    <string name="weather_error_service_unavailable">The weather service is unavailable. Please try again.</string>
+    <string name="weather_error_empty_response">No usable weather data was returned for this city. Please try again.</string>
+    <string name="weather_error_invalid_response">Some weather data could not be read. Please try again.</string>
+    <string name="weather_error_unknown">Weather could not be loaded. Please try again.</string>
+</resources>

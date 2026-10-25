@@ -201,6 +201,7 @@ private fun HourlyPeriodTile(
     val time = start.format(DateTimeFormatter.ofPattern("HH:mm", Locale.getDefault()))
     val interval = periodLabel(period, timezoneId)
     val temperature = temperatureLabel(period.temperatureCelsius, temperatureUnit)
+    val conditionDescription = weatherDescription(period.condition)
     val temperatureDescription = if (period.temperatureCelsius == null) {
         stringResource(R.string.hourly_temperature_missing)
     } else stringResource(R.string.hourly_temperature, temperature)
@@ -234,7 +235,7 @@ private fun HourlyPeriodTile(
                 Text(date, style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center)
                 Text(time, style = MaterialTheme.typography.titleMedium)
             }
-            Box(Modifier.semantics { contentDescription = period.weatherDescription }) {
+            Box(Modifier.semantics { contentDescription = conditionDescription }) {
                 ForecastConditionIcon(period.weatherCode, Modifier.size(42.dp), isDay = period.isDay)
             }
             Text(
@@ -261,6 +262,7 @@ private fun HourlyPeriodTile(
 
 @Composable
 private fun SelectedHourDetails(period: RainPeriod, timezoneId: String, temperatureUnit: TemperatureUnit) {
+    val conditionDescription = weatherDescription(period.condition)
     val temperatureMissingLabel = stringResource(R.string.hourly_temperature_missing)
     val temperature = temperatureLabel(period.temperatureCelsius, temperatureUnit)
     val temperatureDescription = if (period.temperatureCelsius == null) temperatureMissingLabel
@@ -271,7 +273,7 @@ private fun SelectedHourDetails(period: RainPeriod, timezoneId: String, temperat
     val description = stringResource(
         R.string.hourly_selected_description,
         periodLabel(period, timezoneId),
-        period.weatherDescription,
+        conditionDescription,
         temperatureDescription,
         probabilityDescription
     )
@@ -296,7 +298,7 @@ private fun SelectedHourDetails(period: RainPeriod, timezoneId: String, temperat
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 ForecastConditionIcon(period.weatherCode, Modifier.size(36.dp), isDay = period.isDay)
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(period.weatherDescription, style = MaterialTheme.typography.bodyLarge)
+                    Text(conditionDescription, style = MaterialTheme.typography.bodyLarge)
                     Text(
                         temperature,
                         modifier = Modifier.testTag("rain_selected_temperature").semantics {

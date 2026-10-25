@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.Density
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import au.edu.jcu.assessment.utilityapp.data.model.City
 import au.edu.jcu.assessment.utilityapp.data.model.DailyForecast
+import au.edu.jcu.assessment.utilityapp.data.model.WeatherCondition
 import au.edu.jcu.assessment.utilityapp.data.model.RainPeriod
 import au.edu.jcu.assessment.utilityapp.data.model.WeatherSnapshot
 import au.edu.jcu.assessment.utilityapp.ui.components.periodLabel
@@ -86,12 +87,36 @@ class UtilityAppTest {
     }
 
     @Test
-    fun initialFailureShowsRetryWithoutInventingWeather() {
-        showApp(UtilityUiState(errorMessage = "Connection unavailable. Please try again.", now = now))
-        compose.onNodeWithText("Weather could not be loaded").assertIsDisplayed()
+    fun typedFailuresKeepActionableMessagesAndRecoverWithoutInventingWeather() {
+        showApp(UtilityUiState(error = WeatherLoadError.NETWORK, now = now))
+        val failures = listOf(
+            WeatherLoadError.NETWORK to "Could not reach the weather service. Check your connection and try again.",
+            WeatherLoadError.SERVICE_BUSY to "The weather service is busy. Please wait a moment and try again.",
+            WeatherLoadError.SERVICE_UNAVAILABLE to "The weather service is unavailable. Please try again.",
+            WeatherLoadError.EMPTY_RESPONSE to "No usable weather data was returned for this city. Please try again.",
+            WeatherLoadError.INVALID_RESPONSE to "Some weather data could not be read. Please try again.",
+            WeatherLoadError.UNKNOWN to "Weather could not be loaded. Please try again."
+        )
+        failures.forEachIndexed { index, (failure, message) ->
+            compose.runOnIdle { currentState.value = currentState.value.copy(error = failure) }
+            compose.onNodeWithText("Weather could not be loaded").assertIsDisplayed()
+            compose.onNodeWithText(message).performScrollTo().assertIsDisplayed()
+            compose.onNodeWithTag("current_temperature").assertDoesNotExist()
+            compose.onNodeWithTag("retry_button").performScrollTo().performClick()
+            compose.runOnIdle { assertEquals(index + 1, refreshCount) }
+        }
+        compose.runOnIdle {
+            currentState.value = currentState.value.copy(isLoading = true, error = null)
+        }
+        compose.onNodeWithTag("retry_button").assertDoesNotExist()
+        compose.onNodeWithTag("refresh_button").assertIsNotEnabled()
         compose.onNodeWithTag("current_temperature").assertDoesNotExist()
-        compose.onNodeWithTag("retry_button").performScrollTo().performClick()
-        compose.runOnIdle { assertEquals(1, refreshCount) }
+        compose.runOnIdle {
+            currentState.value = currentState.value.copy(isLoading = false, weather = sampleWeather())
+        }
+        scrollWeatherTo("current_temperature")
+        compose.onNodeWithTag("current_temperature").assertTextEquals("25°C")
+        compose.onNodeWithText("Weather could not be loaded").assertDoesNotExist()
     }
 
     @Test
@@ -243,8 +268,7 @@ class UtilityAppTest {
                 end = start.plusSeconds((index + 1) * 3600L),
                 probabilityPercent = if (index < 3) 20.0 else 95.0,
                 temperatureCelsius = 25.0,
-                weatherCode = 2,
-                weatherDescription = "Partly cloudy",
+                condition = WeatherCondition.PARTLY_CLOUDY,
                 isDay = true
             )
         })
@@ -365,7 +389,7 @@ class UtilityAppTest {
             city = City.SINGAPORE,
             temperatureCelsius = 25.0,
             apparentTemperatureCelsius = 30.0,
-            weatherDescription = "Cloudy",
+            condition = WeatherCondition.OVERCAST,
             observationTime = now,
             fetchedAt = now,
             timezoneId = "Asia/Singapore",
@@ -375,8 +399,7 @@ class UtilityAppTest {
                     end = start.plusSeconds((index + 1) * 3600L),
                     probabilityPercent = probability,
                     temperatureCelsius = 25.0 + index,
-                    weatherCode = 3,
-                    weatherDescription = "Overcast",
+                    condition = WeatherCondition.OVERCAST,
                     isDay = true
                 )
             },
@@ -385,8 +408,7 @@ class UtilityAppTest {
                     date = LocalDate.of(2026, 10, 15).plusDays(index.toLong()),
                     temperatureMinCelsius = 20.0 + index,
                     temperatureMaxCelsius = 30.0 + index,
-                    weatherCode = 2,
-                    weatherDescription = "Partly cloudy",
+                    condition = WeatherCondition.PARTLY_CLOUDY,
                     maxPrecipitationProbability = 30.0 + index
                 )
             }

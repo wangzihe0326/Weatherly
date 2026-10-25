@@ -45,6 +45,7 @@ import au.edu.jcu.assessment.utilityapp.ui.components.WeatherGlyph
 import au.edu.jcu.assessment.utilityapp.ui.components.WeatherIcon
 import au.edu.jcu.assessment.utilityapp.ui.components.cityLabel
 import au.edu.jcu.assessment.utilityapp.ui.components.modelTimeLabel
+import au.edu.jcu.assessment.utilityapp.ui.components.weatherErrorMessage
 import java.time.ZoneId
 import java.time.Duration
 
@@ -83,10 +84,10 @@ fun UtilityScreen(state: UtilityUiState, onRefresh: () -> Unit) {
                 }
             }
         }
-        if (state.isLoading || state.errorMessage != null || state.isStale) {
+        if (state.isLoading || state.error != null || state.isStale) {
             item(key = "status") { RefreshStatus(state, onRefresh) }
         }
-        if (weather == null && !state.isLoading && state.errorMessage == null) {
+        if (weather == null && !state.isLoading && state.error == null) {
             item(key = "empty") {
                 StatusCard(
                     title = stringResource(R.string.empty_title),
@@ -149,7 +150,7 @@ fun UtilityScreen(state: UtilityUiState, onRefresh: () -> Unit) {
 @Composable
 private fun RefreshStatus(state: UtilityUiState, onRefresh: () -> Unit) {
     val weather = state.weather
-    val error = state.errorMessage
+    val error = state.error
     val title = stringResource(when {
         state.isLoading -> if (weather == null) R.string.loading_title else R.string.refreshing_weather
         error != null -> if (weather == null) R.string.error_title else R.string.refresh_error_title
@@ -158,7 +159,7 @@ private fun RefreshStatus(state: UtilityUiState, onRefresh: () -> Unit) {
     val message = when {
         state.isLoading && weather == null -> stringResource(R.string.loading_body, cityLabel(state.settings.city))
         state.isLoading -> stringResource(R.string.refresh_keep_browsing)
-        error != null -> error
+        error != null -> weatherErrorMessage(error)
         else -> stringResource(R.string.stale_body)
     }
     val recovery = when {

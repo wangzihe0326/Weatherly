@@ -1,6 +1,7 @@
 package au.edu.jcu.assessment.utilityapp.data.repository
 
 import au.edu.jcu.assessment.utilityapp.data.model.City
+import au.edu.jcu.assessment.utilityapp.data.model.WeatherCondition
 import au.edu.jcu.assessment.utilityapp.data.remote.CurrentWeatherResponse
 import au.edu.jcu.assessment.utilityapp.data.remote.DailyWeatherResponse
 import au.edu.jcu.assessment.utilityapp.data.remote.HourlyWeatherResponse
@@ -120,7 +121,7 @@ class WeatherResponseMapperTest {
         assertEquals(28.5, snapshot.temperatureCelsius!!, 0.0)
         assertNull(snapshot.apparentTemperatureCelsius)
         assertNull(snapshot.observationTime)
-        assertEquals("Weather unavailable", snapshot.weatherDescription)
+        assertEquals(WeatherCondition.UNAVAILABLE, snapshot.condition)
         assertNull(snapshot.weatherCode)
         assertNull(snapshot.isDay)
         assertNull(snapshot.forecastPeriods.single().probabilityPercent)
@@ -141,7 +142,7 @@ class WeatherResponseMapperTest {
 
             assertEquals(expected, snapshot.isDay)
             assertEquals(0, snapshot.weatherCode)
-            assertEquals("Clear sky", snapshot.weatherDescription)
+            assertEquals(WeatherCondition.CLEAR_SKY, snapshot.condition)
         }
     }
 
@@ -161,7 +162,7 @@ class WeatherResponseMapperTest {
 
             assertNull(snapshot.isDay)
             assertNull(snapshot.weatherCode)
-            assertEquals("Weather unavailable", snapshot.weatherDescription)
+            assertEquals(WeatherCondition.UNAVAILABLE, snapshot.condition)
             assertEquals(true, snapshot.forecastPeriods.single { it.start == firstEnd }.isDay)
         }
     }
@@ -178,7 +179,7 @@ class WeatherResponseMapperTest {
 
         assertNull(snapshot.temperatureCelsius)
         assertEquals(31.5, snapshot.apparentTemperatureCelsius!!, 0.0)
-        assertEquals("Weather unavailable", snapshot.weatherDescription)
+        assertEquals(WeatherCondition.UNAVAILABLE, snapshot.condition)
         assertNull(snapshot.weatherCode)
     }
 
@@ -193,7 +194,7 @@ class WeatherResponseMapperTest {
 
         assertNull(snapshot.temperatureCelsius)
         assertNull(snapshot.observationTime)
-        assertEquals("Weather unavailable", snapshot.weatherDescription)
+        assertEquals(WeatherCondition.UNAVAILABLE, snapshot.condition)
         assertEquals(0.0, snapshot.forecastPeriods.single().probabilityPercent!!, 0.0)
     }
 
@@ -204,15 +205,56 @@ class WeatherResponseMapperTest {
             current = CurrentWeatherResponse(weatherCode = 0)
         )
 
-        assertEquals("Clear sky", mapWeatherResponse(response, City.SINGAPORE, fetchedAt).weatherDescription)
+        assertEquals(WeatherCondition.CLEAR_SKY, mapWeatherResponse(response, City.SINGAPORE, fetchedAt).condition)
     }
 
     @Test
     fun heavyThunderstormCodeIsRecognized() {
         val response = baseResponse().copy(current = CurrentWeatherResponse(weatherCode = 97))
 
-        assertEquals("Heavy thunderstorm",
-            mapWeatherResponse(response, City.SINGAPORE, fetchedAt).weatherDescription)
+        assertEquals(WeatherCondition.HEAVY_THUNDERSTORM,
+            mapWeatherResponse(response, City.SINGAPORE, fetchedAt).condition)
+    }
+
+    @Test
+    fun hourlyConditionAloneIsUsefulWithoutInventingCurrentConditionsOrRain() {
+        val response = WeatherResponse(
+            timezone = "Asia/Singapore",
+            hourly = HourlyWeatherResponse(time = listOf(firstEnd.epochSecond), weatherCode = listOf(61))
+        )
+
+        val snapshot = mapWeatherResponse(response, City.SINGAPORE, fetchedAt)
+        val hour = snapshot.forecastPeriods.single { it.start == firstEnd }
+
+        assertEquals(WeatherCondition.UNAVAILABLE, snapshot.condition)
+        assertEquals(WeatherCondition.SLIGHT_RAIN, hour.condition)
+        assertNull(hour.probabilityPercent)
+        assertNull(hour.temperatureCelsius)
+    }
+
+    @Test
+    fun dailyConditionAloneIsUsefulWithoutInventingCurrentConditionsOrTemperatures() {
+        val response = WeatherResponse(
+            timezone = "Asia/Singapore",
+            daily = DailyWeatherResponse(time = listOf(firstEnd.epochSecond), weatherCode = listOf(45))
+        )
+
+        val snapshot = mapWeatherResponse(response, City.SINGAPORE, fetchedAt)
+
+        assertEquals(WeatherCondition.UNAVAILABLE, snapshot.condition)
+        assertEquals(WeatherCondition.FOG, snapshot.dailyForecast.single().condition)
+        assertNull(snapshot.dailyForecast.single().temperatureMinCelsius)
+        assertNull(snapshot.dailyForecast.single().temperatureMaxCelsius)
+    }
+
+    @Test(expected = EmptyWeatherException::class)
+    fun unknownConditionsAcrossAllForecastSectionsCannotCreateSuccess() {
+        mapWeatherResponse(WeatherResponse(
+            timezone = "Asia/Singapore",
+            current = CurrentWeatherResponse(weatherCode = 999),
+            hourly = HourlyWeatherResponse(time = listOf(firstEnd.epochSecond), weatherCode = listOf(98)),
+            daily = DailyWeatherResponse(time = listOf(firstEnd.epochSecond), weatherCode = listOf(-1))
+        ), City.SINGAPORE, fetchedAt)
     }
 
     @Test(expected = InvalidWeatherResponseException::class)
@@ -263,7 +305,7 @@ class WeatherResponseMapperTest {
         assertEquals(20.0, firstHour.temperatureCelsius!!, 0.0)
         assertEquals(30.0, firstHour.probabilityPercent!!, 0.0)
         assertEquals(0, firstHour.weatherCode)
-        assertEquals("Clear sky", firstHour.weatherDescription)
+        assertEquals(WeatherCondition.CLEAR_SKY, firstHour.condition)
         assertEquals(false, firstHour.isDay)
         assertEquals(25.0, secondHour.temperatureCelsius!!, 0.0)
         assertEquals(90.0, secondHour.probabilityPercent!!, 0.0)
@@ -309,7 +351,7 @@ class WeatherResponseMapperTest {
 
         assertEquals(21.0, firstHour.temperatureCelsius!!, 0.0)
         assertNull(firstHour.weatherCode)
-        assertEquals("Weather unavailable", firstHour.weatherDescription)
+        assertEquals(WeatherCondition.UNAVAILABLE, firstHour.condition)
         assertNull(firstHour.isDay)
         assertNull(secondHour.temperatureCelsius)
         assertNull(secondHour.weatherCode)
@@ -371,7 +413,7 @@ class WeatherResponseMapperTest {
         assertEquals(22.0, days[1].temperatureMinCelsius!!, 0.0)
         assertNull(days[1].temperatureMaxCelsius)
         assertEquals(61, days[1].weatherCode)
-        assertEquals("Slight rain", days[1].weatherDescription)
+        assertEquals(WeatherCondition.SLIGHT_RAIN, days[1].condition)
         assertEquals(30.0, days[1].maxPrecipitationProbability!!, 0.0)
     }
 
@@ -392,7 +434,7 @@ class WeatherResponseMapperTest {
             assertNull(day.temperatureMaxCelsius)
             assertNull(day.weatherCode)
             assertNull(day.maxPrecipitationProbability)
-            assertEquals("Weather unavailable", day.weatherDescription)
+            assertEquals(WeatherCondition.UNAVAILABLE, day.condition)
         }
     }
 

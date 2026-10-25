@@ -58,8 +58,8 @@ fun UtilityApp(
     val recoveredNotice = stringResource(R.string.refresh_recovered_notice)
     val retryLabel = stringResource(R.string.retry)
     // Feedback remains available even when the inline status is outside the visible lazy list.
-    LaunchedEffect(state.errorMessage, state.isLoading, state.settings.city) {
-        if (state.weather != null && state.errorMessage != null && !state.isLoading) {
+    LaunchedEffect(state.error, state.isLoading, state.settings.city) {
+        if (state.weather != null && state.error != null && !state.isLoading) {
             refreshFailed = true
             if (snackbarHost.showSnackbar(failureNotice, retryLabel, withDismissAction = true) == SnackbarResult.ActionPerformed) {
                 onRefresh()

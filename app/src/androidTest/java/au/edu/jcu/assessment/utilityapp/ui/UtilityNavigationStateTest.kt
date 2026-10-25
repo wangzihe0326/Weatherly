@@ -17,6 +17,7 @@ import androidx.compose.ui.test.performScrollToNode
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import au.edu.jcu.assessment.utilityapp.data.model.City
 import au.edu.jcu.assessment.utilityapp.data.model.DailyForecast
+import au.edu.jcu.assessment.utilityapp.data.model.WeatherCondition
 import au.edu.jcu.assessment.utilityapp.data.model.RainPeriod
 import au.edu.jcu.assessment.utilityapp.data.model.WeatherSnapshot
 import au.edu.jcu.assessment.utilityapp.ui.components.periodLabel
@@ -222,7 +223,7 @@ class UtilityNavigationStateTest {
             city = city,
             temperatureCelsius = 25.0,
             apparentTemperatureCelsius = 30.0,
-            weatherDescription = "Cloudy",
+            condition = WeatherCondition.OVERCAST,
             observationTime = now,
             fetchedAt = now,
             timezoneId = if (city == City.SINGAPORE) "Asia/Singapore" else "Australia/Brisbane",
@@ -232,8 +233,7 @@ class UtilityNavigationStateTest {
                     end = start.plusSeconds((index + 1) * 3600L),
                     probabilityPercent = 70.0,
                     temperatureCelsius = 25.0,
-                    weatherCode = 3,
-                    weatherDescription = "Overcast",
+                    condition = WeatherCondition.OVERCAST,
                     isDay = true
                 )
             },
@@ -242,8 +242,7 @@ class UtilityNavigationStateTest {
                     date = LocalDate.of(2026, 10, 15).plusDays(index.toLong()),
                     temperatureMinCelsius = 20.0,
                     temperatureMaxCelsius = 30.0,
-                    weatherCode = 2,
-                    weatherDescription = "Partly cloudy",
+                    condition = WeatherCondition.PARTLY_CLOUDY,
                     maxPrecipitationProbability = 30.0
                 )
             }

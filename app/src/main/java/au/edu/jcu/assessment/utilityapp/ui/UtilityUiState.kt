@@ -13,7 +13,7 @@ data class UtilityUiState(
     val settings: AppSettings = AppSettings(),
     val weather: WeatherSnapshot? = null,
     val isLoading: Boolean = false,
-    val errorMessage: String? = null,
+    val error: WeatherLoadError? = null,
     val nextRetryAt: Instant? = null,
     val automaticRetriesExhausted: Boolean = false,
     val now: Instant = Instant.now()

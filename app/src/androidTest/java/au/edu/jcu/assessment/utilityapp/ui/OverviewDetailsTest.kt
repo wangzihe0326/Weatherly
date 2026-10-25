@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import au.edu.jcu.assessment.utilityapp.data.model.City
+import au.edu.jcu.assessment.utilityapp.data.model.WeatherCondition
 import au.edu.jcu.assessment.utilityapp.data.model.RainPeriod
 import au.edu.jcu.assessment.utilityapp.data.model.WeatherSnapshot
 import au.edu.jcu.assessment.utilityapp.ui.components.AdviceCard
@@ -122,7 +123,7 @@ class OverviewDetailsTest {
 
     @Test
     fun currentArtworkRespondsToProviderDaylightInBothThemes() {
-        val current = mutableStateOf(weather().copy(weatherCode = 0, weatherDescription = "Clear sky", isDay = true))
+        val current = mutableStateOf(weather().copy(condition = WeatherCondition.CLEAR_SKY, isDay = true))
         val dark = mutableStateOf(false)
         val label = mutableStateOf("UI test fixture · clear day")
         compose.setContent {
@@ -145,8 +146,8 @@ class OverviewDetailsTest {
                     val name = "${if (darkTheme) "dark" else "light"}-${if (code == 0) "clear" else "partly-cloudy"}-${daylight ?: "unknown"}"
                     compose.runOnIdle {
                         current.value = current.value.copy(
-                            weatherCode = code, isDay = daylight,
-                            weatherDescription = if (code == 0) "Clear sky" else "Partly cloudy"
+                            isDay = daylight,
+                            condition = if (code == 0) WeatherCondition.CLEAR_SKY else WeatherCondition.PARTLY_CLOUDY
                         )
                         label.value = "UI test fixture · $name"
                     }
@@ -168,11 +169,10 @@ class OverviewDetailsTest {
         city = City.SINGAPORE,
         temperatureCelsius = 27.0,
         apparentTemperatureCelsius = 30.0,
-        weatherDescription = "Clear sky",
+        condition = WeatherCondition.CLEAR_SKY,
         observationTime = now,
         fetchedAt = now,
         timezoneId = "Asia/Singapore",
-        weatherCode = 0,
         isDay = false,
         forecastPeriods = listOf(20.0, 60.0, 90.0).mapIndexed { index, probability ->
             RainPeriod(start.plusSeconds(index * 3600L), start.plusSeconds((index + 1) * 3600L), probability)

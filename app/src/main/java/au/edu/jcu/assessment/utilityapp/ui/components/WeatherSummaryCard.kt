@@ -110,7 +110,7 @@ private fun TemperatureAndCondition(weather: WeatherSnapshot, temperatureUnit: T
                 if (weather.temperatureCelsius == null) contentDescription = unavailable
             }
         )
-        Text(weather.weatherDescription, style = MaterialTheme.typography.titleMedium, color = palette.onHero)
+        Text(weatherDescription(weather.condition), style = MaterialTheme.typography.titleMedium, color = palette.onHero)
         Text(
             if (weather.apparentTemperatureCelsius == null) {
                 stringResource(R.string.feels_like_unavailable)

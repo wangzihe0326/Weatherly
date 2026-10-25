@@ -47,7 +47,7 @@ class UtilityViewModel(
         request?.cancel()
         mutableState.update {
             it.copy(
-                isLoading = true, errorMessage = null, nextRetryAt = null,
+                isLoading = true, error = null, nextRetryAt = null,
                 automaticRetriesExhausted = false, now = clock.instant()
             )
         }
@@ -64,7 +64,7 @@ class UtilityViewModel(
                     nextAutomaticRefreshAt = receivedAt.plus(AUTOMATIC_REFRESH_INTERVAL)
                     mutableState.update {
                         it.copy(
-                            weather = weather, isLoading = false, errorMessage = null,
+                            weather = weather, isLoading = false, error = null,
                             nextRetryAt = null, automaticRetriesExhausted = false, now = receivedAt
                         )
                     }
@@ -77,7 +77,7 @@ class UtilityViewModel(
                     val nextRetry = RETRY_DELAYS.getOrNull(automaticRetriesStarted)?.let(failedAt::plus)
                     mutableState.update {
                         it.copy(
-                            isLoading = false, errorMessage = messageFor(failure),
+                            isLoading = false, error = failureFor(failure),
                             nextRetryAt = nextRetry, automaticRetriesExhausted = nextRetry == null,
                             now = failedAt
                         )
@@ -90,7 +90,7 @@ class UtilityViewModel(
     fun selectCity(city: City) {
         if (city == mutableState.value.settings.city) return
         mutableState.update {
-            it.copy(settings = it.settings.copy(city = city), weather = null, errorMessage = null)
+            it.copy(settings = it.settings.copy(city = city), weather = null, error = null)
         }
         automaticRetriesStarted = 0
         nextAutomaticRefreshAt = null
@@ -144,7 +144,7 @@ class UtilityViewModel(
         if (state.isLoading) return
 
         // Re-entering the foreground preserves both the backoff and its retry limit.
-        if (state.errorMessage != null) {
+        if (state.error != null) {
             val retryAt = state.nextRetryAt ?: return
             if (state.now >= retryAt) {
                 automaticRetriesStarted++
@@ -164,15 +164,15 @@ class UtilityViewModel(
         val RETRY_DELAYS: List<Duration> = listOf(1L, 2L, 5L).map(Duration::ofMinutes)
     }
 
-    private fun messageFor(failure: Exception): String = when (failure) {
+    private fun failureFor(failure: Exception): WeatherLoadError = when (failure) {
         is HttpException -> if (failure.code() == 429) {
-            "The weather service is busy. Please wait a moment and try again."
+            WeatherLoadError.SERVICE_BUSY
         } else {
-            "The weather service is unavailable. Please try again."
+            WeatherLoadError.SERVICE_UNAVAILABLE
         }
-        is EmptyWeatherException -> "No usable weather data was returned for this city. Please try again."
-        is InvalidWeatherResponseException -> "Some weather data could not be read. Please try again."
-        is IOException -> "Could not reach the weather service. Check your connection and try again."
-        else -> "Weather could not be loaded. Please try again."
+        is EmptyWeatherException -> WeatherLoadError.EMPTY_RESPONSE
+        is InvalidWeatherResponseException -> WeatherLoadError.INVALID_RESPONSE
+        is IOException -> WeatherLoadError.NETWORK
+        else -> WeatherLoadError.UNKNOWN
     }
 }

@@ -24,6 +24,7 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.unit.Density
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import au.edu.jcu.assessment.utilityapp.data.model.DailyForecast
+import au.edu.jcu.assessment.utilityapp.data.model.WeatherCondition
 import au.edu.jcu.assessment.utilityapp.data.model.RainPeriod
 import au.edu.jcu.assessment.utilityapp.ui.components.DailyForecastCard
 import au.edu.jcu.assessment.utilityapp.ui.components.RainForecastCard
@@ -49,13 +50,13 @@ class ForecastAccessibilityTest {
         end = Instant.parse("2026-10-15T06:00:00Z"),
         probabilityPercent = 30.0,
         temperatureCelsius = 25.0,
-        weatherDescription = "Partly cloudy"
+        condition = WeatherCondition.PARTLY_CLOUDY
     )
     private val day = DailyForecast(
         date = today,
         temperatureMinCelsius = 20.0,
         temperatureMaxCelsius = 30.0,
-        weatherDescription = "Partly cloudy",
+        condition = WeatherCondition.PARTLY_CLOUDY,
         maxPrecipitationProbability = 60.0
     )
 
@@ -63,7 +64,7 @@ class ForecastAccessibilityTest {
     fun laterUpdatesOneCompletePoliteAnnouncementWithoutAddingAnAction() {
         val next = hour.copy(
             start = hour.end, end = hour.end.plusSeconds(3600),
-            temperatureCelsius = 26.0, probabilityPercent = 70.0, weatherDescription = "Rain"
+            temperatureCelsius = 26.0, probabilityPercent = 70.0, condition = WeatherCondition.MODERATE_RAIN
         )
         showForecast(periods = listOf(hour, next))
         compose.onNodeWithTag("rain_period_0")
@@ -81,7 +82,7 @@ class ForecastAccessibilityTest {
             .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.RadioButton))
             .assertIsSelected()
         details.assertContentDescriptionEquals(
-            "Selected hour. ${periodLabel(next, "Asia/Singapore")}. Rain. Temperature 26°C. 70% chance of rain during this hour."
+            "Selected hour. ${periodLabel(next, "Asia/Singapore")}. Moderate rain. Temperature 26°C. 70% chance of rain during this hour."
         ).assert(SemanticsMatcher.expectValue(SemanticsProperties.LiveRegion, LiveRegionMode.Polite))
             .assertHasNoClickAction()
         assertTrue(details.fetchSemanticsNode().children.isEmpty())
@@ -89,7 +90,7 @@ class ForecastAccessibilityTest {
 
     @Test
     fun selectedHourDescribesMissingValuesInsteadOfReadingADashOrZero() {
-        val missing = hour.copy(temperatureCelsius = null, probabilityPercent = null, weatherDescription = "Weather unavailable")
+        val missing = hour.copy(temperatureCelsius = null, probabilityPercent = null, condition = WeatherCondition.UNAVAILABLE)
         showForecast(periods = listOf(missing))
         compose.onNodeWithTag("hourly_details").assertContentDescriptionEquals(
             "Selected hour. ${periodLabel(missing, "Asia/Singapore")}. Weather unavailable. Temperature unavailable. Rain probability is unavailable for this hour."

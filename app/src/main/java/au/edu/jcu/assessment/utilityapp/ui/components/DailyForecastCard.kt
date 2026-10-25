@@ -151,6 +151,7 @@ private fun DailyForecastRow(
     stacked: Boolean
 ) {
     val (low, high) = day.validTemperatures()
+    val conditionDescription = weatherDescription(day.condition)
     val fullDate = day.date.format(DateTimeFormatter.ofPattern("EEEE d MMMM", Locale.getDefault()))
     val dateDescription = when (day.date) {
         today, today.plusDays(1) -> stringResource(R.string.daily_forecast_date_description, dailyDateTitle(day.date, today), fullDate)
@@ -164,7 +165,7 @@ private fun DailyForecastRow(
     val rainDescription = if (probability == null) stringResource(R.string.daily_forecast_rain_unavailable)
         else stringResource(R.string.daily_forecast_peak_rain_description, probabilityLabel(probability))
     val description = stringResource(
-        R.string.daily_forecast_description, dateDescription, day.weatherDescription,
+        R.string.daily_forecast_description, dateDescription, conditionDescription,
         lowDescription, highDescription, rainDescription
     )
     // Today is contextual emphasis only. These rows deliberately have no click or selection semantics.
@@ -190,7 +191,7 @@ private fun DailyForecastRow(
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     DailyDate(day.date, today)
                     Text(
-                        day.weatherDescription,
+                        conditionDescription,
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -223,7 +224,7 @@ private fun DailyForecastRow(
                 verticalAlignment = Alignment.Top
             ) {
                 Text(
-                    day.weatherDescription,
+                    conditionDescription,
                     modifier = Modifier.weight(1f),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant

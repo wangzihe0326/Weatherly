@@ -4,6 +4,8 @@ import au.edu.jcu.assessment.utilityapp.data.model.City
 import au.edu.jcu.assessment.utilityapp.data.model.DailyForecast
 import au.edu.jcu.assessment.utilityapp.data.model.RainPeriod
 import au.edu.jcu.assessment.utilityapp.data.model.WeatherSnapshot
+import au.edu.jcu.assessment.utilityapp.data.repository.EmptyWeatherException
+import au.edu.jcu.assessment.utilityapp.data.repository.InvalidWeatherResponseException
 import au.edu.jcu.assessment.utilityapp.data.repository.WeatherRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -12,10 +14,13 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.After
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
+import retrofit2.HttpException
+import retrofit2.Response
 import java.io.IOException
 import java.time.Clock
 import java.time.Instant
@@ -59,7 +64,7 @@ class UtilityViewModelTest {
         repository.fail(1)
         runCurrent()
         assertEquals(original, vm.uiState.value.weather)
-        assertNotNull(vm.uiState.value.errorMessage)
+        assertNotNull(vm.uiState.value.error)
         assertFalse(vm.uiState.value.isLoading)
     }
 
@@ -75,7 +80,7 @@ class UtilityViewModelTest {
         repository.fail(1)
         runCurrent()
         assertNull(vm.uiState.value.weather)
-        assertNotNull(vm.uiState.value.errorMessage)
+        assertNotNull(vm.uiState.value.error)
     }
 
     @Test fun lateUncancellableSuccessCannotOverwriteNewCity() = runTest {
@@ -88,7 +93,7 @@ class UtilityViewModelTest {
         repository.succeed(0, snapshot(City.SINGAPORE))
         runCurrent()
         assertEquals(City.TOWNSVILLE, vm.uiState.value.weather!!.city)
-        assertNull(vm.uiState.value.errorMessage)
+        assertNull(vm.uiState.value.error)
     }
 
     @Test fun lateUncancellableFailureCannotReplaceNewCitySuccess() = runTest {
@@ -101,7 +106,7 @@ class UtilityViewModelTest {
         repository.fail(0)
         runCurrent()
         assertEquals(City.CAIRNS, vm.uiState.value.weather!!.city)
-        assertNull(vm.uiState.value.errorMessage)
+        assertNull(vm.uiState.value.error)
     }
 
     @Test fun presentationSettingsDoNotFetchWeatherAgain() = runTest {
@@ -148,12 +153,12 @@ class UtilityViewModelTest {
         runCurrent()
         assertNull(vm.uiState.value.weather)
         vm.refresh()
-        assertNull(vm.uiState.value.errorMessage)
+        assertNull(vm.uiState.value.error)
         runCurrent()
         repository.succeed(1, snapshot(City.SINGAPORE))
         runCurrent()
         assertNotNull(vm.uiState.value.weather)
-        assertNull(vm.uiState.value.errorMessage)
+        assertNull(vm.uiState.value.error)
     }
 
     @Test fun dailyOnlyTemperatureIsAcceptedWithoutRepeatedRequestsUntilThirtyMinutes() = runTest {
@@ -167,7 +172,7 @@ class UtilityViewModelTest {
         runCurrent()
 
         assertEquals(partial, vm.uiState.value.weather)
-        assertNull(vm.uiState.value.errorMessage)
+        assertNull(vm.uiState.value.error)
         assertFalse(vm.uiState.value.isLoading)
         vm.onForeground()
         runCurrent()
@@ -200,7 +205,7 @@ class UtilityViewModelTest {
         runCurrent()
 
         assertEquals(partial, vm.uiState.value.weather)
-        assertNull(vm.uiState.value.errorMessage)
+        assertNull(vm.uiState.value.error)
         assertEquals(au.edu.jcu.assessment.utilityapp.data.AdviceKind.UNAVAILABLE, vm.uiState.value.advice.kind)
         assertEquals(1, repository.requests.size)
         assertEquals(26.0, vm.uiState.value.hourlyPeriods.first().temperatureCelsius!!, 0.0)
@@ -235,8 +240,37 @@ class UtilityViewModelTest {
         runCurrent()
 
         assertEquals(original, vm.uiState.value.weather)
-        assertEquals("No usable weather data was returned for this city. Please try again.", vm.uiState.value.errorMessage)
+        assertEquals(WeatherLoadError.EMPTY_RESPONSE, vm.uiState.value.error)
         assertFalse(vm.uiState.value.isLoading)
+    }
+
+    @Test fun repositoryFailuresBecomeTypedErrorsWithoutExposingDiagnosticDetails() = runTest {
+        val diagnostic = "private response details from the weather service"
+        val failures = listOf(
+            IOException(diagnostic) to WeatherLoadError.NETWORK,
+            HttpException(Response.error<Any>(429, diagnostic.toResponseBody())) to WeatherLoadError.SERVICE_BUSY,
+            HttpException(Response.error<Any>(503, diagnostic.toResponseBody())) to WeatherLoadError.SERVICE_UNAVAILABLE,
+            HttpException(Response.error<Any>(401, diagnostic.toResponseBody())) to WeatherLoadError.SERVICE_UNAVAILABLE,
+            EmptyWeatherException() to WeatherLoadError.EMPTY_RESPONSE,
+            InvalidWeatherResponseException(diagnostic, IOException(diagnostic)) to WeatherLoadError.INVALID_RESPONSE,
+            IllegalStateException(diagnostic) to WeatherLoadError.UNKNOWN
+        )
+
+        for ((failure, expected) in failures) {
+            val failingRepository = ControlledRepository()
+            val vm = UtilityViewModel(failingRepository, clock)
+            runCurrent()
+            failingRepository.fail(0, failure)
+            runCurrent()
+
+            val state = vm.uiState.value
+            assertEquals(failure.javaClass.simpleName, expected, state.error)
+            assertFalse(state.isLoading)
+            assertNull(state.weather)
+            assertEquals(clock.instant().plusSeconds(60), state.nextRetryAt)
+            assertFalse(state.toString().contains(diagnostic))
+            assertFalse(state.toString().contains(failure.message.orEmpty()))
+        }
     }
 
     @Test fun continuousForegroundRefreshesAtExpiryWithoutOverlappingAnActiveRequest() = runTest {
@@ -371,7 +405,7 @@ class UtilityViewModelTest {
         repository.succeed(2, replacement)
         runCurrent()
         assertEquals(replacement, vm.uiState.value.weather)
-        assertNull(vm.uiState.value.errorMessage)
+        assertNull(vm.uiState.value.error)
         assertNull(vm.uiState.value.nextRetryAt)
         assertFalse(vm.uiState.value.automaticRetriesExhausted)
 
@@ -397,7 +431,7 @@ class UtilityViewModelTest {
         repository.fail(1)
         runCurrent()
         assertTrue(vm.uiState.value.isLoading)
-        assertNull(vm.uiState.value.errorMessage)
+        assertNull(vm.uiState.value.error)
         assertNull(vm.uiState.value.nextRetryAt)
 
         repository.fail(2)
@@ -469,7 +503,8 @@ class UtilityViewModelTest {
             requests += Request(city, it)
         }
         fun succeed(index: Int, weather: WeatherSnapshot) = requests[index].continuation.resume(weather)
-        fun fail(index: Int) = requests[index].continuation.resumeWithException(IOException("test network failure"))
+        fun fail(index: Int, failure: Exception = IOException("test network failure")) =
+            requests[index].continuation.resumeWithException(failure)
     }
 
     private class MutableClock(var value: Instant) : Clock() {
