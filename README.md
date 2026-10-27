@@ -19,7 +19,6 @@ A two-screen Android weather utility built with Kotlin, Jetpack Compose and Mate
 
 Settings are session-only and may reset when the process restarts. Cities are predefined; location permission is not required. Current conditions come from a weather model rather than a local sensor.
 
-
 ## Architecture
 
 ```text
