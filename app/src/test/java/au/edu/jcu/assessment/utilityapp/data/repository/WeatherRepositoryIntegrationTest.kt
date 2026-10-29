@@ -1,25 +1,41 @@
 package au.edu.jcu.assessment.utilityapp.data.repository
 
+import androidx.lifecycle.ViewModelStore
 import au.edu.jcu.assessment.utilityapp.data.model.City
 import au.edu.jcu.assessment.utilityapp.data.model.WeatherCondition
 import au.edu.jcu.assessment.utilityapp.data.remote.WeatherApi
+import au.edu.jcu.assessment.utilityapp.data.remote.WeatherResponseConverterFactory
+import au.edu.jcu.assessment.utilityapp.ui.UtilityViewModel
+import au.edu.jcu.assessment.utilityapp.ui.WeatherLoadError
+import java.io.EOFException
+import java.io.IOException
 import java.net.InetAddress
 import java.time.Clock
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
 import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.setMain
+import kotlinx.coroutines.withTimeout
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
+import okhttp3.mockwebserver.SocketPolicy
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import retrofit2.HttpException
 import retrofit2.Retrofit
-import retrofit2.converter.gson.GsonConverterFactory
 
 /** Uses synthetic JSON fixtures served only on loopback; never calls a public API. */
 class WeatherRepositoryIntegrationTest {
@@ -34,7 +50,7 @@ class WeatherRepositoryIntegrationTest {
         }
         val api = Retrofit.Builder()
             .baseUrl(server.url("/"))
-            .addConverterFactory(GsonConverterFactory.create())
+            .addConverterFactory(WeatherResponseConverterFactory())
             .build()
             .create(WeatherApi::class.java)
         repository = DefaultWeatherRepository(api, Clock.fixed(fetchedAt, ZoneOffset.UTC))
@@ -107,6 +123,91 @@ class WeatherRepositoryIntegrationTest {
         val url = requireNotNull(request.requestUrl)
         assertEquals(-16.92366, requireNotNull(url.queryParameter("latitude")).toDouble(), 0.000001)
         assertEquals(145.76613, requireNotNull(url.queryParameter("longitude")).toDouble(), 0.000001)
+        assertEquals(1, server.requestCount)
+    }
+
+    @Test
+    fun malformedJsonIsReportedAsInvalidWeatherData() = runBlocking {
+        assertInvalidResponse("""{"current":@}""")
+    }
+
+    @Test
+    fun wrongFieldTypeIsReportedAsInvalidWeatherData() = runBlocking {
+        assertInvalidResponse("""{"current":{"temperature_2m":[]}}""")
+    }
+
+    @Test
+    fun invalidNumericTextIsReportedAsInvalidWeatherData() = runBlocking {
+        assertInvalidResponse("""{"current":{"temperature_2m":"warm"}}""")
+    }
+
+    @Test
+    fun fullyDeliveredButUnfinishedJsonIsReportedAsInvalidWeatherData() = runBlocking {
+        assertInvalidResponse("""{"current":""")
+    }
+
+    @Test
+    fun interruptedHttpBodiesRemainNetworkFailures() = runBlocking {
+        val body = """{"current":{"temperature_2m":25}}""".padEnd(128)
+        for (chunked in listOf(false, true)) {
+            val response = MockResponse().setHeader("Content-Type", "application/json")
+            if (chunked) response.setChunkedBody(body, 64) else response.setBody(body)
+            server.enqueue(response.setSocketPolicy(SocketPolicy.DISCONNECT_DURING_RESPONSE_BODY))
+
+            val error = try {
+                repository.fetchWeather(City.SINGAPORE)
+                throw AssertionError("An interrupted HTTP body must remain a network failure.")
+            } catch (exception: IOException) {
+                exception
+            }
+            // The second chunk's header is cut short: this is transport EOF, not JSON EOF.
+            if (chunked) assertTrue(error is EOFException)
+        }
+        assertEquals(2, server.requestCount)
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun invalidRefreshKeepsWeatherAndRetryRecoversThroughTheRealParser() = runBlocking {
+        Dispatchers.setMain(UnconfinedTestDispatcher())
+        val store = ViewModelStore()
+        try {
+            server.enqueue(MockResponse().setBody(FORECAST_FIXTURE))
+            val vm = UtilityViewModel(repository, Clock.fixed(fetchedAt, ZoneOffset.UTC))
+            store.put("weather", vm)
+            val original = withTimeout(5_000) { vm.uiState.first { !it.isLoading } }
+            assertNotNull(original.weather)
+            assertNull(original.error)
+
+            server.enqueue(MockResponse().setBody("""{"current":"""))
+            vm.refresh()
+            val failed = withTimeout(5_000) { vm.uiState.first { !it.isLoading } }
+            assertEquals(WeatherLoadError.INVALID_RESPONSE, failed.error)
+            assertSame(original.weather, failed.weather)
+            assertEquals(fetchedAt.plusSeconds(60), failed.nextRetryAt)
+
+            server.enqueue(MockResponse().setBody(FORECAST_FIXTURE))
+            vm.refresh()
+            val recovered = withTimeout(5_000) { vm.uiState.first { !it.isLoading } }
+            assertNull(recovered.error)
+            assertNull(recovered.nextRetryAt)
+            assertNotNull(recovered.weather)
+            assertEquals(3, server.requestCount)
+        } finally {
+            store.clear()
+            Dispatchers.resetMain()
+        }
+    }
+
+    private suspend fun assertInvalidResponse(body: String) {
+        server.enqueue(MockResponse().setHeader("Content-Type", "application/json").setBody(body))
+        val error = try {
+            repository.fetchWeather(City.SINGAPORE)
+            throw AssertionError("Unreadable JSON must be classified as invalid weather data.")
+        } catch (exception: InvalidWeatherResponseException) {
+            exception
+        }
+        assertNotNull(error.cause)
         assertEquals(1, server.requestCount)
     }
 
