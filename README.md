@@ -1,4 +1,4 @@
-# Before You Go
+# Weatherly
 
 A two-screen Android weather utility built with Kotlin, Jetpack Compose and Material 3. Weather shows current conditions, up to 24 hourly forecast periods, a seven-day overview and near-term umbrella advice. Settings controls the city, temperature units and reminder threshold.
 

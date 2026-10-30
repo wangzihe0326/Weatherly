@@ -1,8 +1,8 @@
 <resources>
-    <string name="app_name">Before You Go</string>
+    <string name="app_name">Weatherly</string>
     <string name="weather_tab">Weather</string>
     <string name="settings_tab">Settings</string>
-    <string name="weather_heading">Before you go</string>
+    <string name="weather_heading">Weatherly</string>
     <string name="refresh_weather">Refresh weather</string>
     <string name="feels_like">Feels like %1$s</string>
     <string name="temperature_celsius">%1$s°C</string>

@@ -22,5 +22,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "MobileTech_UtilityApp"
+rootProject.name = "Weatherly"
 include(":app")
